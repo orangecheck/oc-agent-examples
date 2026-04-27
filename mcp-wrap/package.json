@@ -1,0 +1,21 @@
+{
+    "name": "oc-agent-mcp-wrap",
+    "private": true,
+    "version": "0.1.0",
+    "description": "Wrap an MCP tool invocation in an OC Agent action envelope. Reads the delegation, prompts the agent for a BIP-322 signature out-of-band, emits a verifiable .action file.",
+    "type": "module",
+    "scripts": {
+        "build": "tsc --noEmit",
+        "start": "tsx src/index.ts"
+    },
+    "dependencies": {
+        "@orangecheck/agent-core": "^0.1.0",
+        "@orangecheck/agent-mcp": "^0.1.0",
+        "@orangecheck/agent-signer": "^0.1.0"
+    },
+    "devDependencies": {
+        "@types/node": "^22.10.2",
+        "tsx": "^4.19.2",
+        "typescript": "^5.7.2"
+    }
+}

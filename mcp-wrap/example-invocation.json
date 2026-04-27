@@ -1,0 +1,8 @@
+{
+    "server": "https://mcp.example.com",
+    "tool": "search",
+    "arguments": {
+        "query": "orangecheck oc-agent",
+        "limit": 5
+    }
+}
