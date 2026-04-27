@@ -4,11 +4,12 @@ Copy-forkable integrations of [OC Agent](https://github.com/orangecheck/oc-agent
 
 ## What's in here
 
-| Path | What it is |
-|---|---|
-| [`mcp-wrap/`](./mcp-wrap) | A Node CLI that wraps an MCP tool invocation in a signed `agent-action` envelope. Reads a `.delegation` file, prints the canonical message for the agent to sign in their own wallet, accepts the BIP-322 signature back on stdin, and emits a verifiable `.action` envelope. The agent's private key never leaves the wallet. |
+| Path | Side | What it is |
+|---|---|---|
+| [`mcp-wrap/`](./mcp-wrap) | client | A Node CLI that wraps an MCP tool invocation in a signed `agent-action` envelope. Reads a `.delegation` file, prints the canonical message for the agent to sign in their own wallet, accepts the BIP-322 signature back on stdin, and emits a verifiable `.action` envelope. The agent's private key never leaves the wallet. |
+| [`verifying-mcp-server/`](./verifying-mcp-server) | server | A stdio MCP-style server that refuses to execute tool calls unless each one carries a valid `_oc_agent.{delegation, action}` bundle. Uses `verifyAction()` for the SPEC §8.1 chain plus content-hash bind and scope-family pinning. Composable with `mcp-wrap` for end-to-end agent → server flows. |
 
-More examples land here as integrations stabilize. Pull requests welcome.
+The two examples are complementary: `mcp-wrap` produces what `verifying-mcp-server` consumes. Run them in sequence to see the full authority loop. More examples land here as integrations stabilize. Pull requests welcome.
 
 ## Shared assumptions
 

@@ -1,0 +1,8 @@
+{
+    "server": "stdio:oc-agent-examples/verifying-mcp-server",
+    "tool": "search",
+    "arguments": {
+        "query": "orangecheck oc-agent",
+        "limit": 3
+    }
+}

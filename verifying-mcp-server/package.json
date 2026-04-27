@@ -1,0 +1,19 @@
+{
+    "name": "oc-agent-verifying-mcp-server",
+    "private": true,
+    "version": "0.1.0",
+    "description": "Server-side counterpart to mcp-wrap: a minimal stdio MCP-style server that verifies every tool call's OC Agent action envelope before dispatch. Composable with @orangecheck/agent-core's verifyAction.",
+    "type": "module",
+    "scripts": {
+        "build": "tsc --noEmit",
+        "start": "tsx src/index.ts"
+    },
+    "dependencies": {
+        "@orangecheck/agent-core": "^0.1.0"
+    },
+    "devDependencies": {
+        "@types/node": "^22.10.2",
+        "tsx": "^4.19.2",
+        "typescript": "^5.7.2"
+    }
+}

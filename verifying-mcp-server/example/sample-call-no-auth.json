@@ -1,0 +1,1 @@
+{"id":"1","method":"tools/call","params":{"name":"echo","arguments":{"hello":"world"}}}
