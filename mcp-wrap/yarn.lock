@@ -145,6 +145,14 @@
     "@noble/hashes" "^1.5.0"
     "@orangecheck/stamp-core" "^0.1.1"
 
+"@orangecheck/agent-core@^0.2.0":
+  version "0.2.0"
+  resolved "https://registry.npmjs.org/@orangecheck/agent-core/-/agent-core-0.2.0.tgz#1b95dc0209cf34e8474dbe3d863fe5b20b7dc178"
+  integrity sha512-jfEcZ9D8tr+QTqg+h5qzEZQzPBopuI8Oap1GvBv9ogGYheO733KBqc3INQY00AAVEQsJ5tbLgehlqD60YPREBA==
+  dependencies:
+    "@noble/hashes" "^1.5.0"
+    "@orangecheck/stamp-core" "^0.1.1"
+
 "@orangecheck/agent-mcp@^0.1.0":
   version "0.1.0"
   resolved "https://registry.npmjs.org/@orangecheck/agent-mcp/-/agent-mcp-0.1.0.tgz#788d7dba81c8af822eb1403a3101562a57f2653f"

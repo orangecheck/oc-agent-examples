@@ -9,7 +9,7 @@
         "start": "tsx src/index.ts"
     },
     "dependencies": {
-        "@orangecheck/agent-core": "^0.1.0",
+        "@orangecheck/agent-core": "^0.2.0",
         "@orangecheck/agent-mcp": "^0.1.0",
         "@orangecheck/agent-signer": "^0.1.0"
     },
