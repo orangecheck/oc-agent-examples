@@ -1,0 +1,9 @@
+{
+    "id": "toolu_01A09q90qw90lq917835lq9",
+    "name": "invoice.create",
+    "input": {
+        "amount": 14.2,
+        "currency": "USD",
+        "memo": "Acme Corp · Q2 2026 services"
+    }
+}

@@ -1,0 +1,22 @@
+{
+    "name": "oc-agent-openai-function-call",
+    "private": true,
+    "version": "0.1.0",
+    "description": "Wrap an OpenAI function call (Responses API or Chat Completions tool path) with @orangecheck/agent-openai. Stamps the call, runs the handler, posts the OC Agent action envelope to fleet.ochk.io. The agent's private key never enters the process — signing happens out-of-band on stdin.",
+    "type": "module",
+    "scripts": {
+        "build": "tsc --noEmit",
+        "start": "tsx src/index.ts"
+    },
+    "dependencies": {
+        "@orangecheck/agent-core": "^0.3.0",
+        "@orangecheck/agent-openai": "^0.2.0",
+        "@orangecheck/agent-signer": "^0.2.0",
+        "openai": "^4.77.0"
+    },
+    "devDependencies": {
+        "@types/node": "^22.10.2",
+        "tsx": "^4.19.2",
+        "typescript": "^5.7.2"
+    }
+}

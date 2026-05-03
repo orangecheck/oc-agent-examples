@@ -1,0 +1,21 @@
+{
+    "name": "oc-agent-vercel-ai-tool",
+    "private": true,
+    "version": "0.1.0",
+    "description": "Wrap a Vercel AI SDK tool() call with @orangecheck/agent-vercel via the ocTool primitive. Stamps the call, runs the handler, posts the OC Agent action envelope to fleet.ochk.io.",
+    "type": "module",
+    "scripts": {
+        "build": "tsc --noEmit",
+        "start": "tsx src/index.ts"
+    },
+    "dependencies": {
+        "@orangecheck/agent-core": "^0.3.0",
+        "@orangecheck/agent-signer": "^0.2.0",
+        "@orangecheck/agent-vercel": "^0.2.0"
+    },
+    "devDependencies": {
+        "@types/node": "^22.10.2",
+        "tsx": "^4.19.2",
+        "typescript": "^5.7.2"
+    }
+}

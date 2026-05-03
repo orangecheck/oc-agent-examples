@@ -4,12 +4,16 @@ Copy-forkable integrations of [OC Agent](https://github.com/orangecheck/oc-agent
 
 ## What's in here
 
-| Path | Side | What it is |
-|---|---|---|
-| [`mcp-wrap/`](./mcp-wrap) | client | A Node CLI that wraps an MCP tool invocation in a signed `agent-action` envelope. Reads a `.delegation` file, prints the canonical message for the agent to sign in their own wallet, accepts the BIP-322 signature back on stdin, and emits a verifiable `.action` envelope. The agent's private key never leaves the wallet. |
-| [`verifying-mcp-server/`](./verifying-mcp-server) | server | A stdio MCP-style server that refuses to execute tool calls unless each one carries a valid `_oc_agent.{delegation, action}` bundle. Uses `verifyAction()` for the SPEC §8.1 chain plus content-hash bind and scope-family pinning. Composable with `mcp-wrap` for end-to-end agent → server flows. |
+| Path | Side | Adapter | What it is |
+|---|---|---|---|
+| [`mcp-wrap/`](./mcp-wrap) | client | [`@orangecheck/agent-mcp`](https://www.npmjs.com/package/@orangecheck/agent-mcp) | Node CLI that wraps an MCP tool invocation in a signed `agent-action` envelope. Reads a `.delegation` file, prints the canonical message for the agent to sign, accepts the BIP-322 signature back on stdin, and emits a verifiable `.action` envelope. |
+| [`verifying-mcp-server/`](./verifying-mcp-server) | server | [`@orangecheck/agent-core`](https://www.npmjs.com/package/@orangecheck/agent-core) | Stdio MCP-style server that refuses to execute tool calls unless each one carries a valid `_oc_agent.{delegation, action}` bundle. Uses `verifyAction()` for the SPEC §8.1 chain plus content-hash bind and scope-family pinning. Composable with `mcp-wrap` for end-to-end agent → server flows. |
+| [`anthropic-tool-use/`](./anthropic-tool-use) | client | [`@orangecheck/agent-anthropic`](https://www.npmjs.com/package/@orangecheck/agent-anthropic) | Node CLI that wraps an Anthropic Tool Use call. Stamps the `tool_use`, runs the handler, optionally posts the envelope to `fleet.ochk.io/api/actions`. Demonstrates `invokeWithStampAndPost`. |
+| [`openai-function-call/`](./openai-function-call) | client | [`@orangecheck/agent-openai`](https://www.npmjs.com/package/@orangecheck/agent-openai) | Node CLI for OpenAI Responses / function-calling. Accepts both raw OpenAI tool_call objects and normalized `OpenAiFunctionCall` shapes. Same `invokeWithStampAndPost` pattern as the Anthropic example. |
+| [`vercel-ai-tool/`](./vercel-ai-tool) | client | [`@orangecheck/agent-vercel`](https://www.npmjs.com/package/@orangecheck/agent-vercel) | Node CLI exercising the `ocTool` primitive used inside the Vercel AI SDK's `tool()`. Two-step composition (wrap, then mount) shown end-to-end without burning provider tokens. |
+| [`langgraph-tool-node/`](./langgraph-tool-node) | client | [`@orangecheck/agent-langgraph`](https://www.npmjs.com/package/@orangecheck/agent-langgraph) | Node CLI exercising the `ocToolNode` primitive for LangGraph nodes. Includes the `graphState` binding so a verifier can prove which graph state the agent was operating from. |
 
-The two examples are complementary: `mcp-wrap` produces what `verifying-mcp-server` consumes. Run them in sequence to see the full authority loop. More examples land here as integrations stabilize. Pull requests welcome.
+The MCP pair (`mcp-wrap` + `verifying-mcp-server`) is complementary — run them in sequence to see the full authority loop, end-to-end. The four agent-stack adapters (`anthropic-tool-use`, `openai-function-call`, `vercel-ai-tool`, `langgraph-tool-node`) each demonstrate a single adapter against a fleet.ochk.io project. More examples land as integrations stabilize. Pull requests welcome.
 
 ## Shared assumptions
 
@@ -39,6 +43,8 @@ MIT. Fork freely.
 
 - **Protocol**: [`orangecheck/oc-agent-protocol`](https://github.com/orangecheck/oc-agent-protocol)
 - **Web client**: [`agent.ochk.io`](https://agent.ochk.io)
-- **Library**: [`@orangecheck/agent-core`](https://npmjs.com/package/@orangecheck/agent-core), [`@orangecheck/agent-signer`](https://npmjs.com/package/@orangecheck/agent-signer)
-- **MCP integration**: [`@orangecheck/agent-mcp`](https://npmjs.com/package/@orangecheck/agent-mcp)
-- **Docs**: [`docs.ochk.io/agent`](https://docs.ochk.io/agent)
+- **Managed surface**: [`fleet.ochk.io`](https://fleet.ochk.io) — operator dashboard, audit pipeline, OC Stamp anchoring
+- **Core library**: [`@orangecheck/agent-core`](https://www.npmjs.com/package/@orangecheck/agent-core), [`@orangecheck/agent-signer`](https://www.npmjs.com/package/@orangecheck/agent-signer)
+- **Adapters**: [`@orangecheck/agent-mcp`](https://www.npmjs.com/package/@orangecheck/agent-mcp), [`agent-anthropic`](https://www.npmjs.com/package/@orangecheck/agent-anthropic), [`agent-openai`](https://www.npmjs.com/package/@orangecheck/agent-openai), [`agent-vercel`](https://www.npmjs.com/package/@orangecheck/agent-vercel), [`agent-langgraph`](https://www.npmjs.com/package/@orangecheck/agent-langgraph)
+- **Webhook verification**: [`@orangecheck/webhook-verify`](https://www.npmjs.com/package/@orangecheck/webhook-verify) — drop-in HMAC-SHA256 timing-safe verifier for inbound fleet webhooks
+- **Docs**: [`docs.ochk.io/agent`](https://docs.ochk.io/agent), [`docs.ochk.io/fleet`](https://docs.ochk.io/fleet)

@@ -1,0 +1,21 @@
+{
+    "name": "oc-agent-langgraph-tool-node",
+    "private": true,
+    "version": "0.1.0",
+    "description": "Wrap a LangGraph tool node with @orangecheck/agent-langgraph via the ocToolNode primitive. Stamps each call, runs the handler, posts the OC Agent action envelope to fleet.ochk.io.",
+    "type": "module",
+    "scripts": {
+        "build": "tsc --noEmit",
+        "start": "tsx src/index.ts"
+    },
+    "dependencies": {
+        "@orangecheck/agent-core": "^0.3.0",
+        "@orangecheck/agent-langgraph": "^0.2.0",
+        "@orangecheck/agent-signer": "^0.2.0"
+    },
+    "devDependencies": {
+        "@types/node": "^22.10.2",
+        "tsx": "^4.19.2",
+        "typescript": "^5.7.2"
+    }
+}

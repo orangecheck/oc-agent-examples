@@ -1,0 +1,9 @@
+{
+    "callId": "call_abc123",
+    "verb": "invoice.create",
+    "args": {
+        "amount": 14.2,
+        "currency": "USD",
+        "memo": "Acme Corp · Q2 2026 services"
+    }
+}

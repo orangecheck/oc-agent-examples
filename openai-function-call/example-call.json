@@ -1,0 +1,8 @@
+{
+    "name": "invoice.create",
+    "arguments": {
+        "amount": 14.2,
+        "currency": "USD",
+        "memo": "Acme Corp · Q2 2026 services"
+    }
+}
