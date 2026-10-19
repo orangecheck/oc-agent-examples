@@ -9,8 +9,8 @@
         "start": "tsx src/index.ts"
     },
     "dependencies": {
-        "@orangecheck/agent-core": "^2.4.0",
-        "@orangecheck/agent-langgraph": "^1.1.0",
+        "@orangecheck/agent-core": "^2.5.0",
+        "@orangecheck/agent-langgraph": "^1.1.1",
         "@orangecheck/agent-signer": "^0.4.0",
         "@orangecheck/bip322": "^1.0.1"
     },

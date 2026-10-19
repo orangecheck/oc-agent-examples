@@ -25,8 +25,7 @@ The MCP pair (`mcp-wrap` + `verifying-mcp-server`) is complementary — run them
 
 Every envelope these examples emit is self-contained and verifies offline with `verifyAction` from [`@orangecheck/agent-core`](https://www.npmjs.com/package/@orangecheck/agent-core), using [`@orangecheck/bip322`](https://www.npmjs.com/package/@orangecheck/bip322) for the signatures. The four agent-stack READMEs each include a `verify.mjs` you can run as-is; `verifying-mcp-server` shows the same check inside a server.
 
-- `mcp:invoke` scopes are in agent-core's scope registry, so `npx @orangecheck/agent-cli verify` on a `[delegation, action]` array and the browser verifier at [agent.ochk.io/app/inspect](https://agent.ochk.io/app/inspect) both work.
-- `anthropic:tool`, `openai:function`, `vercel:tool` and `langgraph:tool` are not in the registry. Create and verify those delegations with `scopeMode: 'permissive'`; the CLI and the browser verifier run strict and reject them with `E_BAD_SCOPE_GRAMMAR`.
+- Every scope the examples use is in agent-core's registry (`mcp:invoke`, and since agent-core 2.5.0 `anthropic:tool`, `openai:function`, `vercel:tool` and `langgraph:tool`), so the default strict mode accepts them. `npx @orangecheck/agent-cli verify` on a `[delegation, action]` array and the browser verifier at [agent.ochk.io/app/inspect](https://agent.ochk.io/app/inspect) work for all of them.
 - The examples pass `skipRevocationCheck: true` to stay offline. In production, fetch kind-30085 revocations by `#delegation` from Nostr and pass them as `revocations`.
 
 ## How OC Agent decouples

@@ -39,7 +39,7 @@ The example CLI in this directory exercises step 2 directly, so you can see the 
 
 ## Run
 
-You need a delegation issued to your agent address that grants `vercel:tool(verb=invoice.create)` or a broader `vercel:tool` scope. Produce one at [agent.ochk.io/app](https://agent.ochk.io/app), or in code with `createDelegation` from [`@orangecheck/agent-signer`](https://www.npmjs.com/package/@orangecheck/agent-signer) (pass `scopeMode: 'permissive'`, since `vercel:tool` is not in agent-core's scope registry).
+You need a delegation issued to your agent address that grants `vercel:tool(verb=invoice.create)` or a broader `vercel:tool` scope. Produce one at [agent.ochk.io/app](https://agent.ochk.io/app), or in code with `createDelegation` from [`@orangecheck/agent-signer`](https://www.npmjs.com/package/@orangecheck/agent-signer).
 
 ```bash
 yarn install
@@ -72,7 +72,6 @@ const verdict = await verifyAction({
     action: read(actionPath),
     content: canonicalizeToolCall({ callId, verb, args }),
     verifyBip322: async (msg, sig, addr) => verifySignature(addr, msg, sig),
-    scopeMode: 'permissive', // vercel:tool is not in agent-core's scope registry
     skipRevocationCheck: true, // or pass `revocations` fetched from Nostr kind-30085 by #delegation
 });
 console.log(verdict.ok ? `ok · ${verdict.id}` : `${verdict.code}: ${verdict.message}`);
@@ -86,7 +85,7 @@ node verify.mjs ./my-agent.delegation ./stamped.action ./example-tool-call.json
 
 Change one byte of the call's args and it fails with `E_BAD_ACTION_STAMP`. Change one byte of the envelope and it fails with `E_BAD_ID`.
 
-`npx @orangecheck/agent-cli verify` and [agent.ochk.io/app/inspect](https://agent.ochk.io/app/inspect) verify in strict scope mode, so they reject `vercel:tool` scopes with `E_BAD_SCOPE_GRAMMAR`. Use the library call above.
+`npx @orangecheck/agent-cli verify` on a `[delegation, action]` array, and [agent.ochk.io/app/inspect](https://agent.ochk.io/app/inspect), verify the envelope as well. Only the library call above also checks it against the tool input.
 
 ## License
 

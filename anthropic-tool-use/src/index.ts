@@ -89,8 +89,6 @@ async function main(): Promise<void> {
     const verdict = await verifyDelegation({
         envelope: delegation,
         verifyBip322: async (msg, sig, addr) => verifySignature(addr, msg, sig),
-        // anthropic:tool is not in agent-core's scope registry.
-        scopeMode: 'permissive',
         // Offline example. In production, fetch kind-30085 revocations by
         // #delegation and pass them as `revocations` instead.
         skipRevocationCheck: true,
