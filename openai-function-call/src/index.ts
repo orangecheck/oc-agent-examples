@@ -1,11 +1,11 @@
 // oc-agent-openai-function-call — wrap an OpenAI function call with an
-// OC Agent action envelope, optionally posting to fleet.ochk.io.
+// OC Agent action envelope.
 //
 // Compatible with both:
-//   - Responses API (newer, streaming-first)
-//   - Chat Completions tool calls (older, sync)
+//   - Responses API function_call items ({ call_id, name, arguments })
+//   - Chat Completions tool calls ({ id, function: { name, arguments } })
 //
-// Both produce the same OpenAiFunctionCall shape — see example-call.json.
+// Both normalize to the same OpenAiFunctionCall shape — see example-call.json.
 //
 // Usage:
 //   tsx src/index.ts \
@@ -13,18 +13,14 @@
 //     --call path/to/function-call.json \
 //     --agent-address bc1q… \
 //     [--scope openai:function(name=invoice.create)] \
-//     [--fleet-token ock_… --fleet-project proj_…] \
 //     > my.action
 
 import { readFileSync } from 'node:fs';
 import { argv, exit, stderr, stdout } from 'node:process';
 
 import { verifyDelegation } from '@orangecheck/agent-core';
-import {
-    invokeWithStampAndPost,
-    type OpenAiFunctionCall,
-    type FleetClient,
-} from '@orangecheck/agent-openai';
+import { invokeWithStamp, type OpenAiFunctionCall } from '@orangecheck/agent-openai';
+import { verifySignature } from '@orangecheck/bip322';
 
 import { makeInteractiveSigner } from './interactive-signer.ts';
 
@@ -33,9 +29,6 @@ interface CliArgs {
     callPath: string;
     agentAddress: string;
     scope?: string;
-    fleetToken?: string;
-    fleetProject?: string;
-    fleetBaseUrl?: string;
 }
 
 function parseArgs(args: string[]): CliArgs {
@@ -55,18 +48,10 @@ function parseArgs(args: string[]): CliArgs {
     const agentAddress = m.get('agent-address');
     if (!delegationPath || !callPath || !agentAddress) {
         throw new Error(
-            'usage: tsx src/index.ts --delegation <path> --call <path> --agent-address <bc1q…> [--scope <scope-string>] [--fleet-token <ock_…> --fleet-project <proj_…>]'
+            'usage: tsx src/index.ts --delegation <path> --call <path> --agent-address <bc1q…> [--scope <scope-string>]'
         );
     }
-    return {
-        delegationPath,
-        callPath,
-        agentAddress,
-        scope: m.get('scope'),
-        fleetToken: m.get('fleet-token'),
-        fleetProject: m.get('fleet-project'),
-        fleetBaseUrl: m.get('fleet-base-url'),
-    };
+    return { delegationPath, callPath, agentAddress, scope: m.get('scope') };
 }
 
 /** Stand-in for your real implementation. Echo the input. */
@@ -80,11 +65,19 @@ async function main(): Promise<void> {
     const args = parseArgs(argv.slice(2));
 
     const delegation = JSON.parse(readFileSync(args.delegationPath, 'utf8'));
-    const verdict = await verifyDelegation({ envelope: delegation });
+    const verdict = await verifyDelegation({
+        envelope: delegation,
+        verifyBip322: async (msg, sig, addr) => verifySignature(addr, msg, sig),
+        // openai:function is not in agent-core's scope registry.
+        scopeMode: 'permissive',
+        // Offline example. In production, fetch kind-30085 revocations by
+        // #delegation and pass them as `revocations` instead.
+        skipRevocationCheck: true,
+    });
     if (!verdict.ok) {
         throw new Error(`delegation does not verify: ${verdict.code} · ${verdict.message}`);
     }
-    stderr.write(`✓ delegation verified · agent=${delegation.agent.address}\n`);
+    stderr.write(`✓ delegation verified · id=${verdict.id} · agent=${delegation.agent.address}\n`);
 
     if (delegation.agent.address !== args.agentAddress) {
         throw new Error(
@@ -93,33 +86,18 @@ async function main(): Promise<void> {
     }
 
     const rawCall = JSON.parse(readFileSync(args.callPath, 'utf8'));
-    const signer = makeInteractiveSigner(args.agentAddress);
 
-    const fleet: FleetClient | undefined =
-        args.fleetToken && args.fleetProject
-            ? { apiToken: args.fleetToken, projectId: args.fleetProject, baseUrl: args.fleetBaseUrl }
-            : undefined;
-
-    const { result, action, posted } = await invokeWithStampAndPost({
-        agent: signer,
+    // Scope check, stamp (signing via stdin), then run the handler.
+    // An out-of-scope call throws before the handler runs.
+    const { result, action } = await invokeWithStamp({
+        agent: makeInteractiveSigner(args.agentAddress),
         delegation,
-        call: rawCall,                 // accepts raw OpenAI tool_call OR a normalized OpenAiFunctionCall
+        call: rawCall, // raw OpenAI tool_call / function_call, or a normalized OpenAiFunctionCall
         scopeExercised: args.scope,
         execute: invoiceHandler,
-        fleet,
     });
 
-    stderr.write(`✓ stamped action · id=${action.id}\n`);
-    if (posted) {
-        stderr.write(
-            `✓ posted to fleet · project=${posted.project_id} · delegation=${posted.delegation_id}\n`
-        );
-    } else if (fleet) {
-        stderr.write(`× fleet POST failed (see prior log line)\n`);
-    } else {
-        stderr.write(`· skipped fleet POST\n`);
-    }
-
+    stderr.write(`✓ stamped action · id=${action.id} · scope=${action.scope_exercised}\n`);
     stderr.write(`\nfunction result:\n`);
     stderr.write(JSON.stringify(result, null, 2) + '\n');
 

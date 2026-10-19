@@ -1,24 +1,23 @@
-// A SignerRef compatible with @orangecheck/agent-signer that defers BIP-322
-// signing to whatever wallet the operator has on hand (UniSat, Xverse, sparrow,
-// bitcoind's `signmessagewithprivkey`, an HSM…). The canonical message that
-// must be signed is printed to stderr; the operator pastes the resulting
-// base64 signature back on stdin.
+// SignerRef for @orangecheck/agent-signer that defers BIP-322 signing to
+// whatever wallet the operator has on hand (UniSat, Xverse, Sparrow,
+// bitcoind's `signmessagewithprivkey`, an HSM…). The message that must be
+// signed is printed to stderr; the operator pastes the resulting base64
+// signature back on stdin.
 //
 // The agent's private key NEVER appears in this process.
 
 import { createInterface } from 'node:readline/promises';
 import { stdin, stderr } from 'node:process';
 
-export function makeInteractiveSigner(address: string): {
-    address: string;
-    signMessage: (msg: string) => Promise<string>;
-} {
+import type { SignerRef } from '@orangecheck/agent-signer';
+
+export function makeInteractiveSigner(address: string): SignerRef {
     return {
         address,
         signMessage: async (msg: string) => {
             stderr.write('\n');
             stderr.write('─'.repeat(72) + '\n');
-            stderr.write(`SIGN THIS MESSAGE with the BIP-322-capable wallet for ${address}:\n`);
+            stderr.write(`SIGN THIS MESSAGE with the BIP-322 wallet for ${address}:\n`);
             stderr.write('─'.repeat(72) + '\n');
             stderr.write(msg + '\n');
             stderr.write('─'.repeat(72) + '\n');

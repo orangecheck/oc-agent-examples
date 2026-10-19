@@ -21,8 +21,8 @@ export interface ToolCallRequest {
         name: string;
         arguments: Record<string, unknown>;
     };
-    /** OC Agent verification bundle. Required when the server is configured
-     *  with --require-agent-auth. */
+    /** OC Agent verification bundle. Required unless the server runs with
+     *  --no-require-agent-auth. */
     _oc_agent?: OcAgentBundle;
 }
 

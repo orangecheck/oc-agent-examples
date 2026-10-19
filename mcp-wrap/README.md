@@ -6,8 +6,8 @@ This example takes the smallest possible step from "an MCP server tool was calle
 
 1. Reads a delegation envelope (the principal's grant of scoped authority).
 2. Reads an MCP invocation as JSON (`{ server, tool, arguments }`).
-3. Verifies the delegation offline.
-4. Builds the canonical action message and prints it to stderr.
+3. Verifies the delegation offline, including the principal's BIP-322 signature.
+4. Stamps the invocation and prints the message to sign on stderr.
 5. Waits for you to paste the BIP-322 signature back on stdin (signed in the agent's wallet).
 6. Emits a fully-formed `agent-action` envelope to stdout.
 
@@ -17,12 +17,12 @@ The agent's secret key never enters this process. The wrapper composes with **an
 
 ```bash
 cd mcp-wrap
-yarn install   # or npm install
+yarn install
 ```
 
 ## What you need
 
-- A delegation envelope issued **to your agent address**. Produce one at [agent.ochk.io/app](https://agent.ochk.io/app) and download with `.delegation`. Store it locally.
+- A delegation envelope issued **to your agent address**, granting an `mcp:invoke` scope for the server and tool. Produce one at [agent.ochk.io/app](https://agent.ochk.io/app) and download it as a `.delegation` file, or create one in code with `createDelegation` from [`@orangecheck/agent-signer`](https://www.npmjs.com/package/@orangecheck/agent-signer).
 - The agent's Bitcoin address.
 - A BIP-322-capable wallet for that address (UniSat, Xverse, Leather, OKX, Phantom, Sparrow's "Sign Message", `bitcoin-cli signmessagewithprivkey`, an HSM, …).
 - An MCP invocation as JSON. See [`example-invocation.json`](./example-invocation.json) for the shape.
@@ -30,28 +30,44 @@ yarn install   # or npm install
 ## Usage
 
 ```bash
-yarn start \
+yarn -s start \
   --delegation ./agent.delegation \
   --invocation ./example-invocation.json \
   --agent-address bc1qagent… \
   > out.action
 ```
 
+Use `yarn -s` (silent). Plain `yarn start` prints its own banner to stdout and corrupts the envelope file.
+
 The script will:
 
 1. Verify your delegation offline and print a summary on stderr (id, scopes, expiry).
-2. Print the canonical message that needs signing — copy it into your wallet's "Sign Message" UI.
+2. Print the message that needs signing (the action id). Copy it into your wallet's "Sign Message" UI.
 3. Read the resulting base64 signature from stdin.
 4. Write the signed action envelope to stdout.
 
-Pipe `out.action` to whoever needs to verify the call — the receiving service, an audit log, a dispute-resolution party. Anyone with [`@orangecheck/agent-core`](https://npmjs.com/package/@orangecheck/agent-core) can verify it offline. The web inspector at [agent.ochk.io/inspect](https://agent.ochk.io/inspect) accepts a `[delegation, action]` array directly.
+Pipe `out.action` to whoever needs to verify the call: the receiving service, an audit log, a dispute-resolution party.
+
+## Verify
+
+Anyone with the delegation can verify the action offline. The CLI takes a `[delegation, action]` array:
+
+```bash
+jq -s . ./agent.delegation ./out.action > pair.json
+npx @orangecheck/agent-cli verify pair.json
+# OK · action + delegation verified
+#   id: <action id>
+#   ! revocation not checked (offline) — query kind-30085 by #delegation
+```
+
+Change one byte of the action's `content.hash` and the same command prints `REJECTED · E_BAD_ID` and exits 1. The web inspector at [agent.ochk.io/app/inspect](https://agent.ochk.io/app/inspect) accepts the same array, and also checks Nostr for revocations. In code, call `verifyAction` from [`@orangecheck/agent-core`](https://www.npmjs.com/package/@orangecheck/agent-core) with `content: canonicalizeInvocation(invocation)` from `@orangecheck/agent-mcp` to also prove the action covers this exact invocation; [`../verifying-mcp-server`](../verifying-mcp-server) does exactly that.
 
 ## Optional: explicit scope
 
 By default the script computes the scope as `mcp:invoke(server=<server>,tool=<tool>)`. If your delegation grants something narrower (e.g., `mcp:invoke(server=https://x.com,tool=search,max_invocations<=50)`), pass it explicitly so the action's `scope_exercised` matches:
 
 ```bash
-yarn start \
+yarn -s start \
   --delegation ./agent.delegation \
   --invocation ./inv.json \
   --agent-address bc1qagent… \
@@ -59,7 +75,11 @@ yarn start \
   > out.action
 ```
 
-The script pre-flights the sub-scope relation (SPEC §7.4) so a mismatch fails fast — before you sign.
+The script pre-flights the sub-scope relation (SPEC §7.4), so a mismatch fails before you sign:
+
+```
+ERROR: stampInvocation: scope_exercised (mcp:invoke(server=https://mcp.example.com,tool=delete)) is not a sub-scope of any granted scope (mcp:invoke(server=https://mcp.example.com,tool=search))
+```
 
 ## Wiring this into Claude Code, Cursor, or any MCP client
 
@@ -67,7 +87,7 @@ This wrapper is a "stamp every call" pattern. Two integration shapes:
 
 ### 1. Wrap a stdio MCP server
 
-If you operate the MCP server, intercept each invocation just before dispatch. Pass `(server, tool, arguments)` to `stampInvocation()` from [`@orangecheck/agent-mcp`](https://npmjs.com/package/@orangecheck/agent-mcp), attach the resulting `action` envelope to the response, and your callers get a verifiable receipt for free.
+If you operate the MCP server, intercept each invocation just before dispatch. Pass `(server, tool, arguments)` to `stampInvocation()` from [`@orangecheck/agent-mcp`](https://www.npmjs.com/package/@orangecheck/agent-mcp), attach the resulting `action` envelope to the response, and your callers get a verifiable receipt for free.
 
 ### 2. Wrap from the client side
 

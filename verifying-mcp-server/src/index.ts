@@ -3,9 +3,9 @@
 // Reads JSON-per-line tool-call requests on stdin. For each request:
 //
 //   1. If the request carries `_oc_agent: { delegation, action }`, run
-//      verifyMcpCall(): full SPEC §8.1 chain on the action against the
-//      delegation, plus MCP-specific binds (content_hash matches the
-//      canonicalized invocation, scope is mcp:invoke).
+//      verifyMcpCall(): BIP-322 signatures and the SPEC §8 chain on the
+//      delegation and action, plus MCP-specific binds (content hash matches
+//      the canonical invocation, scope names this server and tool).
 //   2. If verification fails, write a JSON error response to stdout and
 //      log the rejection to stderr.
 //   3. If verification passes (or --no-require-agent-auth is set and no
@@ -13,12 +13,12 @@
 //
 // Usage:
 //
-//   yarn start                            # require OC Agent auth (default)
-//   yarn start -- --no-require-agent-auth # for local development
+//   yarn -s start                          # require OC Agent auth (default)
+//   yarn -s start --no-require-agent-auth  # for local development
 //
 // Pipe in NDJSON; each line should be a ToolCallRequest:
 //
-//   echo '{"id":"1","method":"tools/call","params":{"name":"echo","arguments":{"hi":1}},"_oc_agent":{...}}' | yarn start
+//   echo '{"id":"1","method":"tools/call","params":{"name":"echo","arguments":{"hi":1}},"_oc_agent":{...}}' | yarn -s start
 
 import { argv, exit, stderr, stdin, stdout } from 'node:process';
 import { createInterface } from 'node:readline';
@@ -42,14 +42,20 @@ stderr.write(
 stderr.write('reading NDJSON from stdin; one ToolCallRequest per line\n');
 
 const rl = createInterface({ input: stdin });
+const inFlight = new Set<Promise<void>>();
 
 rl.on('line', (line) => {
     const trimmed = line.trim();
     if (!trimmed) return;
-    void handleLine(trimmed);
+    const p = handleLine(trimmed).finally(() => inFlight.delete(p));
+    inFlight.add(p);
 });
 
-rl.on('close', () => exit(0));
+// Answer every request already read before exiting, even when verification
+// awaits real I/O (e.g. a revocation lookup on Nostr).
+rl.on('close', () => {
+    void Promise.allSettled(inFlight).then(() => exit(0));
+});
 
 async function handleLine(line: string): Promise<void> {
     let req: ToolCallRequest;

@@ -1,5 +1,5 @@
 // oc-agent-anthropic-tool-use — wrap an Anthropic Tool Use call with an
-// OC Agent action envelope, optionally posting to fleet.ochk.io.
+// OC Agent action envelope.
 //
 // Usage:
 //   tsx src/index.ts \
@@ -7,36 +7,29 @@
 //     --tool-use path/to/tool-use.json \
 //     --agent-address bc1q… \
 //     [--scope anthropic:tool(name=invoice.create)] \
-//     [--fleet-token ock_…] \
-//     [--fleet-project proj_…] \
 //     > my.action
 //
 // The script:
-//   1. Reads + verifies the delegation envelope (offline, SPEC §8.1).
+//   1. Reads + verifies the delegation envelope offline (SPEC §8.1),
+//      including the principal's BIP-322 signature.
 //   2. Confirms the agent address matches delegation.agent.address.
 //   3. Reads the Anthropic `tool_use` block (id, name, input).
-//   4. Runs your handler — for this example, an echo handler that
-//      returns the input unchanged. Swap in your real implementation
-//      where invoiceHandler is wired below.
-//   5. Stamps the tool_use into an OC Agent action envelope, signing
+//   4. Stamps the tool_use into an OC Agent action envelope, signing
 //      via stdin so the agent's wallet does the actual BIP-322 work
 //      (the agent's private key never enters this process).
-//   6. Optionally posts the envelope to fleet.ochk.io/api/actions
-//      when --fleet-token + --fleet-project are provided.
-//   7. Emits the signed envelope as pretty JSON on stdout.
+//   5. Runs your handler — here an echo stub. Swap in your real
+//      implementation where invoiceHandler is wired below.
+//   6. Emits the signed envelope as pretty JSON on stdout.
 //
-// The resulting envelope is verifiable end-to-end with @orangecheck/agent-core
-// or via the public verifier at https://fleet.ochk.io/verify.
+// Anyone holding the delegation can verify the envelope offline with
+// verifyAction from @orangecheck/agent-core. See README.md.
 
 import { readFileSync } from 'node:fs';
 import { argv, exit, stderr, stdout } from 'node:process';
 
+import { invokeWithStamp, type AnthropicToolUse } from '@orangecheck/agent-anthropic';
 import { verifyDelegation } from '@orangecheck/agent-core';
-import {
-    invokeWithStampAndPost,
-    type AnthropicToolUse,
-    type FleetClient,
-} from '@orangecheck/agent-anthropic';
+import { verifySignature } from '@orangecheck/bip322';
 
 import { makeInteractiveSigner } from './interactive-signer.ts';
 
@@ -45,9 +38,6 @@ interface CliArgs {
     toolUsePath: string;
     agentAddress: string;
     scope?: string;
-    fleetToken?: string;
-    fleetProject?: string;
-    fleetBaseUrl?: string;
 }
 
 function parseArgs(args: string[]): CliArgs {
@@ -69,18 +59,10 @@ function parseArgs(args: string[]): CliArgs {
     const agentAddress = m.get('agent-address');
     if (!delegationPath || !toolUsePath || !agentAddress) {
         throw new Error(
-            'usage: tsx src/index.ts --delegation <path> --tool-use <path> --agent-address <bc1q…> [--scope <scope-string>] [--fleet-token <ock_…> --fleet-project <proj_…>] [--fleet-base-url <https://…>]'
+            'usage: tsx src/index.ts --delegation <path> --tool-use <path> --agent-address <bc1q…> [--scope <scope-string>]'
         );
     }
-    return {
-        delegationPath,
-        toolUsePath,
-        agentAddress,
-        scope: m.get('scope'),
-        fleetToken: m.get('fleet-token'),
-        fleetProject: m.get('fleet-project'),
-        fleetBaseUrl: m.get('fleet-base-url'),
-    };
+    return { delegationPath, toolUsePath, agentAddress, scope: m.get('scope') };
 }
 
 /**
@@ -103,13 +85,20 @@ async function main(): Promise<void> {
     const args = parseArgs(argv.slice(2));
 
     // 1. Read + verify the delegation envelope offline.
-    const delegationJson = readFileSync(args.delegationPath, 'utf8');
-    const delegation = JSON.parse(delegationJson);
-    const verdict = await verifyDelegation({ envelope: delegation });
+    const delegation = JSON.parse(readFileSync(args.delegationPath, 'utf8'));
+    const verdict = await verifyDelegation({
+        envelope: delegation,
+        verifyBip322: async (msg, sig, addr) => verifySignature(addr, msg, sig),
+        // anthropic:tool is not in agent-core's scope registry.
+        scopeMode: 'permissive',
+        // Offline example. In production, fetch kind-30085 revocations by
+        // #delegation and pass them as `revocations` instead.
+        skipRevocationCheck: true,
+    });
     if (!verdict.ok) {
         throw new Error(`delegation does not verify: ${verdict.code} · ${verdict.message}`);
     }
-    stderr.write(`✓ delegation verified · agent=${delegation.agent.address}\n`);
+    stderr.write(`✓ delegation verified · id=${verdict.id} · agent=${delegation.agent.address}\n`);
 
     // 2. Confirm the agent address matches.
     if (delegation.agent.address !== args.agentAddress) {
@@ -119,56 +108,26 @@ async function main(): Promise<void> {
     }
 
     // 3. Read the Anthropic tool_use block.
-    const toolUse: AnthropicToolUse = JSON.parse(
-        readFileSync(args.toolUsePath, 'utf8')
-    );
+    const toolUse: AnthropicToolUse = JSON.parse(readFileSync(args.toolUsePath, 'utf8'));
     if (!toolUse.id || !toolUse.name || typeof toolUse.input !== 'object') {
-        throw new Error(
-            'tool_use file must be { id: string, name: string, input: object }'
-        );
+        throw new Error('tool_use file must be { id: string, name: string, input: object }');
     }
 
-    // 4. Build the SignerRef. Signing happens via stdin so the agent's
-    //    private key never enters this process.
-    const signer = makeInteractiveSigner(args.agentAddress);
-
-    // 5. Optional fleet client. When provided, the stamped envelope is
-    //    POSTed to fleet.ochk.io/api/actions after the call completes.
-    const fleet: FleetClient | undefined = args.fleetToken && args.fleetProject
-        ? {
-              apiToken: args.fleetToken,
-              projectId: args.fleetProject,
-              baseUrl: args.fleetBaseUrl,
-          }
-        : undefined;
-
-    // 6. Stamp + execute + optional post — one call.
-    const { result, action, posted } = await invokeWithStampAndPost({
-        agent: signer,
+    // 4–5. Scope check, stamp (signing via stdin), then run the handler.
+    //      An out-of-scope call throws before the handler runs.
+    const { result, action } = await invokeWithStamp({
+        agent: makeInteractiveSigner(args.agentAddress),
         delegation,
         toolUse,
         scopeExercised: args.scope,
         call: invoiceHandler,
-        fleet,
     });
 
-    stderr.write(`✓ stamped action · id=${action.id}\n`);
-    if (posted) {
-        stderr.write(
-            `✓ posted to fleet · project=${posted.project_id} · delegation=${posted.delegation_id}\n`
-        );
-    } else if (fleet) {
-        stderr.write(`× fleet POST failed (see prior log line)\n`);
-    } else {
-        stderr.write(
-            `· skipped fleet POST (no --fleet-token / --fleet-project)\n`
-        );
-    }
-
+    stderr.write(`✓ stamped action · id=${action.id} · scope=${action.scope_exercised}\n`);
     stderr.write(`\ntool result:\n`);
     stderr.write(JSON.stringify(result, null, 2) + '\n');
 
-    // 7. Emit the signed envelope on stdout for piping / saving.
+    // 6. Emit the signed envelope on stdout for piping / saving.
     stdout.write(JSON.stringify(action, null, 2) + '\n');
 }
 

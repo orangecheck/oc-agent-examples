@@ -9,9 +9,10 @@
         "start": "tsx src/index.ts"
     },
     "dependencies": {
-        "@orangecheck/agent-core": "^0.2.0",
-        "@orangecheck/agent-mcp": "^0.1.0",
-        "@orangecheck/agent-signer": "^0.1.0"
+        "@orangecheck/agent-core": "^2.4.0",
+        "@orangecheck/agent-mcp": "^0.4.0",
+        "@orangecheck/agent-signer": "^0.4.0",
+        "@orangecheck/bip322": "^1.0.1"
     },
     "devDependencies": {
         "@types/node": "^22.10.2",

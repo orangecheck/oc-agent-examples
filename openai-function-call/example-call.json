@@ -1,4 +1,5 @@
 {
+    "id": "call_abc123",
     "name": "invoice.create",
     "arguments": {
         "amount": 14.2,

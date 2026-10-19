@@ -11,14 +11,14 @@
 //     --delegation path/to/agent.delegation \
 //     --tool-call path/to/tool-call.json \
 //     --agent-address bc1q… \
-//     [--fleet-token ock_… --fleet-project proj_…] \
 //     > my.action
 
 import { readFileSync } from 'node:fs';
 import { argv, exit, stderr, stdout } from 'node:process';
 
 import { verifyDelegation } from '@orangecheck/agent-core';
-import { ocToolNode, type FleetClient } from '@orangecheck/agent-langgraph';
+import { ocToolNode } from '@orangecheck/agent-langgraph';
+import { verifySignature } from '@orangecheck/bip322';
 
 import { makeInteractiveSigner } from './interactive-signer.ts';
 
@@ -26,9 +26,6 @@ interface CliArgs {
     delegationPath: string;
     toolCallPath: string;
     agentAddress: string;
-    fleetToken?: string;
-    fleetProject?: string;
-    fleetBaseUrl?: string;
 }
 
 function parseArgs(args: string[]): CliArgs {
@@ -48,17 +45,10 @@ function parseArgs(args: string[]): CliArgs {
     const agentAddress = m.get('agent-address');
     if (!delegationPath || !toolCallPath || !agentAddress) {
         throw new Error(
-            'usage: tsx src/index.ts --delegation <path> --tool-call <path> --agent-address <bc1q…> [--fleet-token <ock_…> --fleet-project <proj_…>]'
+            'usage: tsx src/index.ts --delegation <path> --tool-call <path> --agent-address <bc1q…>'
         );
     }
-    return {
-        delegationPath,
-        toolCallPath,
-        agentAddress,
-        fleetToken: m.get('fleet-token'),
-        fleetProject: m.get('fleet-project'),
-        fleetBaseUrl: m.get('fleet-base-url'),
-    };
+    return { delegationPath, toolCallPath, agentAddress };
 }
 
 interface ToolCallFile {
@@ -71,11 +61,19 @@ async function main(): Promise<void> {
     const args = parseArgs(argv.slice(2));
 
     const delegation = JSON.parse(readFileSync(args.delegationPath, 'utf8'));
-    const verdict = await verifyDelegation({ envelope: delegation });
+    const verdict = await verifyDelegation({
+        envelope: delegation,
+        verifyBip322: async (msg, sig, addr) => verifySignature(addr, msg, sig),
+        // langgraph:tool is not in agent-core's scope registry.
+        scopeMode: 'permissive',
+        // Offline example. In production, fetch kind-30085 revocations by
+        // #delegation and pass them as `revocations` instead.
+        skipRevocationCheck: true,
+    });
     if (!verdict.ok) {
         throw new Error(`delegation does not verify: ${verdict.code} · ${verdict.message}`);
     }
-    stderr.write(`✓ delegation verified · agent=${delegation.agent.address}\n`);
+    stderr.write(`✓ delegation verified · id=${verdict.id} · agent=${delegation.agent.address}\n`);
 
     if (delegation.agent.address !== args.agentAddress) {
         throw new Error(
@@ -84,12 +82,6 @@ async function main(): Promise<void> {
     }
 
     const toolCall: ToolCallFile = JSON.parse(readFileSync(args.toolCallPath, 'utf8'));
-    const signer = makeInteractiveSigner(args.agentAddress);
-
-    const fleet: FleetClient | undefined =
-        args.fleetToken && args.fleetProject
-            ? { apiToken: args.fleetToken, projectId: args.fleetProject, baseUrl: args.fleetBaseUrl }
-            : undefined;
 
     // Define the node: ocToolNode wraps your real implementation with
     // pre-call scope check + post-call envelope emission. In a real
@@ -104,29 +96,18 @@ async function main(): Promise<void> {
         },
     });
 
-    // graphState is the persisted graph state at the moment of the call —
-    // included in the canonical bytes so a verifier can prove which graph
-    // state the agent was operating from. For this single-node example
-    // we just pass the input args; in a real graph this is `state`.
-    const { result, action, posted } = await createInvoice.execute(toolCall.args, {
-        agent: signer,
+    // graphState is the persisted graph state at the moment of the call.
+    // Its hash goes into the canonical bytes, so a verifier can prove which
+    // graph state the agent was operating from. For this single-node example
+    // we pass the input args; in a real graph this is `state`.
+    const { result, action } = await createInvoice.execute(toolCall.args, {
+        agent: makeInteractiveSigner(args.agentAddress),
         delegation,
         callId: toolCall.callId,
         graphState: toolCall.args,
-        fleet,
     });
 
-    stderr.write(`✓ stamped action · id=${action.id}\n`);
-    if (posted) {
-        stderr.write(
-            `✓ posted to fleet · project=${posted.project_id} · delegation=${posted.delegation_id}\n`
-        );
-    } else if (fleet) {
-        stderr.write(`× fleet POST failed (see prior log line)\n`);
-    } else {
-        stderr.write(`· skipped fleet POST\n`);
-    }
-
+    stderr.write(`✓ stamped action · id=${action.id} · scope=${action.scope_exercised}\n`);
     stderr.write(`\nnode result:\n`);
     stderr.write(JSON.stringify(result, null, 2) + '\n');
 

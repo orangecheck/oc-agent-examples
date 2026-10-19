@@ -1,14 +1,24 @@
-// Wraps @orangecheck/agent-core's verifyAction with an MCP-shaped check:
-// the action's content_hash MUST match a SHA-256 of the canonical MCP
-// invocation, and the exercised scope MUST be a sub-scope of `mcp:invoke`.
+// Wraps @orangecheck/agent-core's verifyAction with two MCP-shaped checks:
+// the action's content hash MUST match the canonical bytes of the invocation
+// this server was actually asked to run, and the exercised scope MUST name
+// this server and this tool.
 //
-// This is the server-side mirror of @orangecheck/agent-mcp's stampInvocation
-// on the client side — same canonicalization, opposite direction.
+// The canonical bytes come from @orangecheck/agent-mcp, the same function
+// mcp-wrap stamps with, so the two sides cannot drift apart.
 
-import { sha256 } from '@noble/hashes/sha256';
-import { canonicalize, hexEncode, parseScope, isSubScope } from '@orangecheck/agent-core';
+import {
+    isSubScope,
+    parseScope,
+    verifyAction,
+    verifyDelegation,
+} from '@orangecheck/agent-core';
+import { canonicalizeInvocation } from '@orangecheck/agent-mcp';
+import { verifySignature } from '@orangecheck/bip322';
 
 import type { OcAgentBundle, ToolCallRequest } from './types.ts';
+
+/** The `server` value clients must stamp invocations of this server with. */
+export const SERVER_ID = 'stdio:oc-agent-examples/verifying-mcp-server';
 
 export interface VerifyMcpCallOk {
     ok: true;
@@ -25,90 +35,60 @@ export interface VerifyMcpCallErr {
 
 export type VerifyMcpCallResult = VerifyMcpCallOk | VerifyMcpCallErr;
 
-/**
- * Build the canonical bytes for an MCP invocation in the same shape
- * @orangecheck/agent-mcp uses on the signing side. The two sides MUST agree
- * exactly or the content_hash check fails.
- */
-function canonicalInvocationBytes(req: ToolCallRequest): Uint8Array {
-    const canon = {
-        arguments: req.params.arguments,
-        server: 'stdio:oc-agent-examples/verifying-mcp-server',
-        tool: req.params.name,
-    };
-    const str = canonicalize(canon as unknown as Parameters<typeof canonicalize>[0]);
-    return new TextEncoder().encode(str + '\n');
-}
+const verifyBip322 = async (msg: string, sig: string, addr: string) =>
+    verifySignature(addr, msg, sig);
 
 export async function verifyMcpCall(
     req: ToolCallRequest,
     bundle: OcAgentBundle
 ): Promise<VerifyMcpCallResult> {
-    const core = await import('@orangecheck/agent-core');
-
-    // 1. Verify the delegation envelope itself.
-    const dr = await core.verifyDelegation({
+    // 1. The delegation is authentic and in force right now.
+    //    Revocations: this demo stays offline. A production server queries
+    //    Nostr kind-30085 by #delegation and passes `revocations` instead of
+    //    skipRevocationCheck, here and in step 2.
+    const dr = await verifyDelegation({
         envelope: bundle.delegation,
-        skipSignatureVerification: true, // demo posture; flip in production
+        verifyBip322,
+        skipRevocationCheck: true,
     });
     if (!dr.ok) {
         return { ok: false, code: dr.code, message: `delegation: ${dr.message}` };
     }
 
-    // 2. Verify the action against the delegation. agent-core handles the
-    //    full SPEC §8.1 chain (id, scope grammar, signature, window, scope
-    //    sub-relation). We do NOT pass revocations here — for that, query
-    //    Nostr kind-30085 and feed them in. Skipped in the demo.
-    const ar = await core.verifyAction({
+    // 2. The action: SPEC §8 chain (id, agent signature, delegation binding,
+    //    signing window, sub-scope of a grant), plus `content`, which binds
+    //    the action to the invocation we received. An action stamped over
+    //    different arguments, another tool or another server fails here.
+    const ar = await verifyAction({
         action: bundle.action,
         delegation: bundle.delegation,
-        skipSignatureVerification: true,
+        verifyBip322,
+        skipRevocationCheck: true,
+        content: canonicalizeInvocation({
+            server: SERVER_ID,
+            tool: req.params.name,
+            arguments: req.params.arguments,
+        }),
     });
     if (!ar.ok) {
         return { ok: false, code: ar.code, message: `action: ${ar.message}` };
     }
 
-    // 3. MCP-specific: the action's content_hash MUST equal sha256 of the
-    //    canonicalized invocation we received. This is the bind between
-    //    "what the agent stamped" and "what we're being asked to execute."
-    const expected = 'sha256:' + hexEncode(sha256(canonicalInvocationBytes(req)));
-    if (bundle.action.content.hash !== expected) {
-        return {
-            ok: false,
-            code: 'E_INVOCATION_HASH_MISMATCH',
-            message: `action attests to ${bundle.action.content.hash}, request canonicalizes to ${expected}`,
-        };
-    }
-
-    // 4. MCP-specific: scope_exercised MUST be a sub-scope of an mcp:invoke
-    //    grant in the delegation. (verifyAction already checks sub-scope
-    //    against ANY scope in delegation.scopes, but we additionally pin
-    //    the family to mcp:invoke since that's what THIS server speaks.)
-    let exercised;
+    // 3. The exercised scope must name this server and this tool. verifyAction
+    //    already proved it is a sub-scope of some grant; this proves the grant
+    //    being exercised is the one for this call.
+    let admitted = false;
     try {
-        exercised = parseScope(bundle.action.scope_exercised);
+        const here = parseScope(`mcp:invoke(server=${SERVER_ID},tool=${req.params.name})`);
+        admitted = isSubScope(parseScope(bundle.action.scope_exercised), here);
     } catch (e) {
-        return {
-            ok: false,
-            code: 'E_BAD_SCOPE_GRAMMAR',
-            message: (e as Error).message,
-        };
+        return { ok: false, code: 'E_BAD_SCOPE_GRAMMAR', message: (e as Error).message };
     }
-    if (exercised.product !== 'mcp' || exercised.verb !== 'invoke') {
-        return {
-            ok: false,
-            code: 'E_WRONG_SCOPE_FAMILY',
-            message: `this server only honors mcp:invoke; got ${exercised.product}:${exercised.verb}`,
-        };
-    }
-    const grantedMcp = bundle.delegation.scopes
-        .map(parseScope)
-        .filter((g) => g.product === 'mcp' && g.verb === 'invoke');
-    if (!grantedMcp.some((g) => isSubScope(exercised, g))) {
+    if (!admitted) {
         return {
             ok: false,
             code: 'E_SCOPE_DENIED',
-            message: 'no granted mcp:invoke scope admits the exercised one',
+            message: `scope_exercised ${bundle.action.scope_exercised} does not name server=${SERVER_ID},tool=${req.params.name}`,
         };
     }
 

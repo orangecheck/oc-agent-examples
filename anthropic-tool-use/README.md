@@ -1,20 +1,19 @@
 # anthropic-tool-use
 
-Wrap an Anthropic [Tool Use](https://docs.anthropic.com/en/docs/build-with-claude/tool-use) invocation with an OC Agent action envelope, optionally posting to [fleet.ochk.io](https://fleet.ochk.io).
+Wrap an Anthropic [Tool Use](https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview) invocation with an OC Agent action envelope.
 
-This is the runnable companion to [`@orangecheck/agent-anthropic`](https://www.npmjs.com/package/@orangecheck/agent-anthropic). The package handles the canonicalization, scope check, BIP-322 stamping, and fleet POST; this example wires them into a Node CLI you can fork.
+This is the runnable companion to [`@orangecheck/agent-anthropic`](https://www.npmjs.com/package/@orangecheck/agent-anthropic). The package handles the canonicalization, scope check and BIP-322 stamping; this example wires them into a Node CLI you can fork.
 
-The agent's private key never enters this process — signing happens out-of-band on stdin against whatever BIP-322-capable wallet you have on hand (UniSat, Xverse, Sparrow, bitcoind's `signmessagewithprivkey`, an HSM…).
+The agent's private key never enters this process. Signing happens out-of-band on stdin against whatever BIP-322-capable wallet you have on hand (UniSat, Xverse, Sparrow, bitcoind's `signmessagewithprivkey`, an HSM…).
 
 ## What it does
 
-1. Reads + verifies the delegation envelope (offline, [SPEC §8.1](https://github.com/orangecheck/oc-agent-protocol/blob/main/SPEC.md)).
+1. Reads and verifies the delegation envelope offline ([SPEC §8.1](https://github.com/orangecheck/oc-agent-protocol/blob/main/SPEC.md)), including the principal's BIP-322 signature.
 2. Confirms `--agent-address` matches `delegation.agent.address`.
 3. Reads the Anthropic `tool_use` block (`{ id, name, input }`).
-4. Runs your handler. The included `invoiceHandler` is an echo stub — replace it with your real tool implementation.
-5. Stamps the `tool_use` into an OC Agent action envelope (kind 30084, `oc-agent-act:` d-tag), signing via stdin so the wallet does the BIP-322 work.
-6. Optionally POSTs the envelope to `fleet.ochk.io/api/actions` when `--fleet-token` + `--fleet-project` are supplied.
-7. Emits the signed envelope as pretty JSON on stdout.
+4. Checks the scope, then stamps the `tool_use` into an OC Agent action envelope. It prints the message to sign and reads the signature from stdin, so the wallet does the BIP-322 work. An out-of-scope call stops here, before your handler runs.
+5. Runs your handler. The included `invoiceHandler` is an echo stub. Replace it with your real tool.
+6. Writes the signed envelope as JSON to stdout. Log lines go to stderr.
 
 ## Install
 
@@ -24,65 +23,68 @@ yarn install
 
 ## Run
 
-You'll need:
+You need:
 
-- a delegation envelope issued to your agent address — produce one at [agent.ochk.io/app](https://agent.ochk.io/app), or with [`@orangecheck/agent-cli`](https://www.npmjs.com/package/@orangecheck/agent-cli), or via the [fleet operator dashboard at /agents/new](https://fleet.ochk.io/agents/new)
-- an Anthropic `tool_use` block to stamp — see [`example-tool-use.json`](./example-tool-use.json) for the shape
-- a BIP-322-capable wallet for the agent address (UniSat, Xverse, Sparrow, bitcoind, …)
-
-### Stamp without posting (offline)
+- a delegation envelope issued to your agent address, granting `anthropic:tool(name=invoice.create)` or a broader `anthropic:tool` scope. Produce one at [agent.ochk.io/app](https://agent.ochk.io/app), or in code with `createDelegation` from [`@orangecheck/agent-signer`](https://www.npmjs.com/package/@orangecheck/agent-signer) (pass `scopeMode: 'permissive'`, since `anthropic:tool` is not in agent-core's scope registry).
+- an Anthropic `tool_use` block to stamp. See [`example-tool-use.json`](./example-tool-use.json) for the shape.
+- a BIP-322-capable wallet for the agent address.
 
 ```bash
-yarn start \
+yarn -s start \
   --delegation ./my-agent.delegation \
   --tool-use ./example-tool-use.json \
   --agent-address bc1qexample… \
   > stamped.action
 ```
 
-### Stamp + POST to fleet.ochk.io
-
-Get an API token from [fleet.ochk.io/settings](https://fleet.ochk.io/settings) § 03 and a project id from [fleet.ochk.io/dashboard](https://fleet.ochk.io/dashboard).
-
-```bash
-yarn start \
-  --delegation ./my-agent.delegation \
-  --tool-use ./example-tool-use.json \
-  --agent-address bc1qexample… \
-  --fleet-token ock_… \
-  --fleet-project proj_… \
-  > stamped.action
-```
-
-The script writes log lines to stderr, the signed envelope to stdout. When fleet posting succeeds, the dashboard's audit log shows the action within seconds.
+Use `yarn -s` (silent). Plain `yarn start` prints its own banner to stdout and corrupts the envelope file.
 
 ### Override the scope
 
-By default the adapter picks the tightest admissible scope for the tool: `anthropic:tool(name=<tool>)`. If your delegation grants a coarser scope, override:
+By default the adapter exercises the tightest scope for the tool: `anthropic:tool(name=<tool>)`. Pass `--scope` to exercise a different one. It must be a sub-scope of a scope the delegation grants, or the adapter refuses before anything is signed:
 
 ```bash
-yarn start \
-  --scope 'anthropic:tool(name=*)' \
-  ...
+yarn -s start \
+  --delegation ./my-agent.delegation \
+  --tool-use ./example-tool-use.json \
+  --agent-address bc1qexample… \
+  --scope 'anthropic:tool(name=invoice.delete)'
+# error: stampToolUse: scope_exercised (anthropic:tool(name=invoice.delete)) is not a sub-scope of any granted scope (anthropic:tool(name=invoice.create))
 ```
-
-The adapter still rejects scopes that aren't a sub-scope of anything in `delegation.scopes`.
 
 ## Verifying the output
 
-The emitted envelope is self-contained and verifiable offline:
+The envelope is self-contained. Anyone holding the delegation can verify it offline with `verifyAction` from [`@orangecheck/agent-core`](https://www.npmjs.com/package/@orangecheck/agent-core). Passing `content` also proves the action covers this exact `tool_use`. Save this as `verify.mjs` in this directory:
+
+```js
+import { readFileSync } from 'node:fs';
+import { canonicalizeToolUse } from '@orangecheck/agent-anthropic';
+import { verifyAction } from '@orangecheck/agent-core';
+import { verifySignature } from '@orangecheck/bip322';
+
+const [delegationPath, actionPath, toolUsePath] = process.argv.slice(2);
+const read = (p) => JSON.parse(readFileSync(p, 'utf8'));
+
+const verdict = await verifyAction({
+    delegation: read(delegationPath),
+    action: read(actionPath),
+    content: canonicalizeToolUse(read(toolUsePath)),
+    verifyBip322: async (msg, sig, addr) => verifySignature(addr, msg, sig),
+    scopeMode: 'permissive', // anthropic:tool is not in agent-core's scope registry
+    skipRevocationCheck: true, // or pass `revocations` fetched from Nostr kind-30085 by #delegation
+});
+console.log(verdict.ok ? `ok · ${verdict.id}` : `${verdict.code}: ${verdict.message}`);
+process.exit(verdict.ok ? 0 : 1);
+```
 
 ```bash
-# CLI
-npx @orangecheck/agent-cli verify ./stamped.action
-
-# library
-import { verifyAction } from '@orangecheck/agent-core';
-const verdict = await verifyAction(JSON.parse(envelope));
-
-# web
-open https://fleet.ochk.io/verify
+node verify.mjs ./my-agent.delegation ./stamped.action ./example-tool-use.json
+# ok · <action id>
 ```
+
+Change one byte of the `tool_use` input and it fails with `E_BAD_ACTION_STAMP`. Change one byte of the envelope and it fails with `E_BAD_ID`.
+
+`npx @orangecheck/agent-cli verify` and [agent.ochk.io/app/inspect](https://agent.ochk.io/app/inspect) verify in strict scope mode, so they reject `anthropic:tool` scopes with `E_BAD_SCOPE_GRAMMAR`. Use the library call above.
 
 ## Where this fits in your real Claude integration
 
@@ -90,32 +92,30 @@ Your production code would do something like:
 
 ```ts
 import Anthropic from '@anthropic-ai/sdk';
-import { invokeWithStampAndPost } from '@orangecheck/agent-anthropic';
+import { invokeWithStamp } from '@orangecheck/agent-anthropic';
 
 const anthropic = new Anthropic();
-const stream = await anthropic.messages.create({
-    model: 'claude-sonnet-4-6',
+const message = await anthropic.messages.create({
+    model: 'claude-opus-5-5',
     tools,
-    max_tokens: 1024,
+    max_tokens: 16000,
     messages: [{ role: 'user', content: 'invoice acme for $14.20' }],
 });
 
-for await (const event of stream) {
-    if (event.type === 'content_block_start' && event.content_block.type === 'tool_use') {
-        const toolUse = event.content_block;
-        const { result, posted } = await invokeWithStampAndPost({
-            agent: signer,        // your SignerRef (wallet, HSM, …)
-            delegation,           // active OC Agent delegation
-            toolUse,              // the anthropic tool_use block
-            call: yourToolHandler,
-            fleet: { apiToken, projectId },
-        });
-        // hand `result` back to Claude as the tool_result content block
-    }
+for (const block of message.content) {
+    if (block.type !== 'tool_use') continue;
+    const { result, action } = await invokeWithStamp({
+        agent: signer,        // your SignerRef (wallet, HSM, …)
+        delegation,           // active OC Agent delegation
+        toolUse: { id: block.id, name: block.name, input: block.input as Record<string, unknown> },
+        call: yourToolHandler,
+    });
+    // hand `result` back to Claude as the tool_result content block,
+    // and ship `action` to whoever needs to verify the call
 }
 ```
 
-The library does scope-checking before your handler runs (so out-of-scope calls are refused before any side effect) and emits the OC Agent envelope after — same shape as every other adapter in the family.
+The library checks the scope before your handler runs, so out-of-scope calls are refused before any side effect. The envelope comes back with the result, in the same shape as every other adapter in the family.
 
 ## License
 
@@ -124,7 +124,6 @@ MIT. Fork freely.
 ## Related
 
 - **Package**: [`@orangecheck/agent-anthropic`](https://www.npmjs.com/package/@orangecheck/agent-anthropic) · [source](https://github.com/orangecheck/oc-packages/tree/main/agent-anthropic)
-- **Anthropic Tool Use docs**: [docs.anthropic.com/en/docs/build-with-claude/tool-use](https://docs.anthropic.com/en/docs/build-with-claude/tool-use)
+- **Anthropic Tool Use docs**: [platform.claude.com/docs/en/agents-and-tools/tool-use/overview](https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview)
 - **OC Agent protocol**: [orangecheck/oc-agent-protocol](https://github.com/orangecheck/oc-agent-protocol)
-- **Managed surface**: [fleet.ochk.io/integrations/anthropic](https://fleet.ochk.io/integrations/anthropic)
-- **Family docs**: [docs.ochk.io/fleet/integrations](https://docs.ochk.io/fleet/integrations)
+- **Docs**: [docs.ochk.io/agent](https://docs.ochk.io/agent)
