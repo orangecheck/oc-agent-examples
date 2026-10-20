@@ -96,4 +96,4 @@ MIT.
 - **Package**: [`@orangecheck/agent-vercel`](https://www.npmjs.com/package/@orangecheck/agent-vercel) · [source](https://github.com/orangecheck/oc-packages/tree/main/agent-vercel)
 - **AI SDK tool docs**: [ai-sdk.dev/docs/foundations/tools](https://ai-sdk.dev/docs/foundations/tools)
 - **OC Agent protocol**: [orangecheck/oc-agent-protocol](https://github.com/orangecheck/oc-agent-protocol)
-- **Docs**: [docs.ochk.io/agent](https://docs.ochk.io/agent)
+- **Docs**: [ochk.io/docs/agent](https://ochk.io/docs/agent)

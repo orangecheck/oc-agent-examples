@@ -125,4 +125,4 @@ MIT. Fork freely.
 - **Package**: [`@orangecheck/agent-anthropic`](https://www.npmjs.com/package/@orangecheck/agent-anthropic) · [source](https://github.com/orangecheck/oc-packages/tree/main/agent-anthropic)
 - **Anthropic Tool Use docs**: [platform.claude.com/docs/en/agents-and-tools/tool-use/overview](https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview)
 - **OC Agent protocol**: [orangecheck/oc-agent-protocol](https://github.com/orangecheck/oc-agent-protocol)
-- **Docs**: [docs.ochk.io/agent](https://docs.ochk.io/agent)
+- **Docs**: [ochk.io/docs/agent](https://ochk.io/docs/agent)

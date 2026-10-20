@@ -53,4 +53,4 @@ MIT. Fork freely.
 - **Core library**: [`@orangecheck/agent-core`](https://www.npmjs.com/package/@orangecheck/agent-core), [`@orangecheck/agent-signer`](https://www.npmjs.com/package/@orangecheck/agent-signer), [`@orangecheck/bip322`](https://www.npmjs.com/package/@orangecheck/bip322)
 - **CLI**: [`@orangecheck/agent-cli`](https://www.npmjs.com/package/@orangecheck/agent-cli) — verify, inspect and canonicalize envelopes from the shell
 - **Adapters**: [`@orangecheck/agent-mcp`](https://www.npmjs.com/package/@orangecheck/agent-mcp), [`agent-anthropic`](https://www.npmjs.com/package/@orangecheck/agent-anthropic), [`agent-openai`](https://www.npmjs.com/package/@orangecheck/agent-openai), [`agent-vercel`](https://www.npmjs.com/package/@orangecheck/agent-vercel), [`agent-langgraph`](https://www.npmjs.com/package/@orangecheck/agent-langgraph)
-- **Docs**: [`docs.ochk.io/agent`](https://docs.ochk.io/agent)
+- **Docs**: [`ochk.io/docs/agent`](https://ochk.io/docs/agent)

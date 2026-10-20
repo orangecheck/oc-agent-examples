@@ -90,4 +90,4 @@ MIT.
 - **Package**: [`@orangecheck/agent-langgraph`](https://www.npmjs.com/package/@orangecheck/agent-langgraph) · [source](https://github.com/orangecheck/oc-packages/tree/main/agent-langgraph)
 - **LangGraph docs**: [docs.langchain.com/oss/javascript/langgraph/overview](https://docs.langchain.com/oss/javascript/langgraph/overview)
 - **OC Agent protocol**: [orangecheck/oc-agent-protocol](https://github.com/orangecheck/oc-agent-protocol)
-- **Docs**: [docs.ochk.io/agent](https://docs.ochk.io/agent)
+- **Docs**: [ochk.io/docs/agent](https://ochk.io/docs/agent)

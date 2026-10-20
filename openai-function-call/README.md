@@ -78,4 +78,4 @@ MIT.
 - **Package**: [`@orangecheck/agent-openai`](https://www.npmjs.com/package/@orangecheck/agent-openai) · [source](https://github.com/orangecheck/oc-packages/tree/main/agent-openai)
 - **OpenAI function-calling docs**: [developers.openai.com/api/docs/guides/function-calling](https://developers.openai.com/api/docs/guides/function-calling)
 - **OC Agent protocol**: [orangecheck/oc-agent-protocol](https://github.com/orangecheck/oc-agent-protocol)
-- **Docs**: [docs.ochk.io/agent](https://docs.ochk.io/agent)
+- **Docs**: [ochk.io/docs/agent](https://ochk.io/docs/agent)
