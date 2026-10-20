@@ -44,7 +44,7 @@ export async function verifyMcpCall(
 ): Promise<VerifyMcpCallResult> {
     // 1. The delegation is authentic and in force right now.
     //    Revocations: this demo stays offline. A production server queries
-    //    Nostr kind-30085 by #delegation and passes `revocations` instead of
+    //    Nostr kind-30085 by `"#t": [delegation id]` and passes `revocations` instead of
     //    skipRevocationCheck, here and in step 2.
     const dr = await verifyDelegation({
         envelope: bundle.delegation,

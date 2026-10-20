@@ -26,7 +26,7 @@ The MCP pair (`mcp-wrap` + `verifying-mcp-server`) is complementary — run them
 Every envelope these examples emit is self-contained and verifies offline with `verifyAction` from [`@orangecheck/agent-core`](https://www.npmjs.com/package/@orangecheck/agent-core), using [`@orangecheck/bip322`](https://www.npmjs.com/package/@orangecheck/bip322) for the signatures. The four agent-stack READMEs each include a `verify.mjs` you can run as-is; `verifying-mcp-server` shows the same check inside a server.
 
 - Every scope the examples use is in agent-core's registry (`mcp:invoke`, and since agent-core 2.5.0 `anthropic:tool`, `openai:function`, `vercel:tool` and `langgraph:tool`), so the default strict mode accepts them. `npx @orangecheck/agent-cli verify` on a `[delegation, action]` array and the browser verifier at [agent.ochk.io/app/inspect](https://agent.ochk.io/app/inspect) work for all of them.
-- The examples pass `skipRevocationCheck: true` to stay offline. In production, fetch kind-30085 revocations by `#delegation` from Nostr and pass them as `revocations`.
+- The examples pass `skipRevocationCheck: true` to stay offline. In production, fetch kind-30085 revocations from Nostr with `"#t": [delegation id]` and pass them as `revocations`. A relay that sends `CLOSED`, errors or times out has not answered, so its silence is not "not revoked" (OC Agent SPEC §10.4).
 
 ## How OC Agent decouples
 

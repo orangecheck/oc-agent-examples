@@ -66,7 +66,7 @@ const verdict = await verifyAction({
     action: read(actionPath),
     content: canonicalizeToolCall({ callId, verb, args, graphStateHash: graphStateHash(graphState) }),
     verifyBip322: async (msg, sig, addr) => verifySignature(addr, msg, sig),
-    skipRevocationCheck: true, // or pass `revocations` fetched from Nostr kind-30085 by #delegation
+    skipRevocationCheck: true, // or pass `revocations` fetched from Nostr kind-30085 by "#t": [delegation id]
 });
 console.log(verdict.ok ? `ok · ${verdict.id}` : `${verdict.code}: ${verdict.message}`);
 process.exit(verdict.ok ? 0 : 1);

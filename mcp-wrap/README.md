@@ -57,7 +57,7 @@ jq -s . ./agent.delegation ./out.action > pair.json
 npx @orangecheck/agent-cli verify pair.json
 # OK · action + delegation verified
 #   id: <action id>
-#   ! revocation not checked (offline) — query kind-30085 by #delegation
+#   ! revocation not checked (offline) — query kind 30085 with "#t": [delegation id]
 ```
 
 Change one byte of the action's `content.hash` and the same command prints `REJECTED · E_BAD_ID` and exits 1. The web inspector at [agent.ochk.io/app/inspect](https://agent.ochk.io/app/inspect) accepts the same array, and also checks Nostr for revocations. In code, call `verifyAction` from [`@orangecheck/agent-core`](https://www.npmjs.com/package/@orangecheck/agent-core) with `content: canonicalizeInvocation(invocation)` from `@orangecheck/agent-mcp` to also prove the action covers this exact invocation; [`../verifying-mcp-server`](../verifying-mcp-server) does exactly that.

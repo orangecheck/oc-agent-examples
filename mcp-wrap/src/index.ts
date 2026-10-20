@@ -89,7 +89,7 @@ async function main() {
         envelope: delegation,
         verifyBip322: async (msg, sig, addr) => verifySignature(addr, msg, sig),
         // Offline example. In production, fetch kind-30085 revocations by
-        // #delegation and pass them as `revocations` instead.
+        // `"#t": [delegation id]` and pass them as `revocations` instead.
         skipRevocationCheck: true,
     });
     if (!v.ok) {
