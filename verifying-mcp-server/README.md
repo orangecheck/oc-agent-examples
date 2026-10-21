@@ -90,6 +90,7 @@ Anything else gets an error response on stdout and a `reject` line on stderr, an
 | one byte of the action envelope changed | `E_BAD_ID` |
 | delegation signature does not verify for the principal | `E_BAD_SIG` |
 | delegation expired | `E_EXPIRED` |
+| delegation lasts more than 365 days | `E_MALFORMED` |
 | action exercises a scope outside the delegation | `E_SCOPE_DENIED` |
 | action exercises a granted scope that names another server or tool | `E_SCOPE_DENIED` |
 | no `_oc_agent` bundle | `E_MISSING_AGENT_AUTH` |
