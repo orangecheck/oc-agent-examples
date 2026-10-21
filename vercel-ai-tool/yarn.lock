@@ -176,9 +176,9 @@
     "@orangecheck/agent-signer" "^0.4.0"
 
 "@orangecheck/bip322@^1.0.1":
-  version "1.0.1"
-  resolved "https://registry.yarnpkg.com/@orangecheck/bip322/-/bip322-1.0.1.tgz#9d01f5a0288ffef566c50954ca9c5569e42d1702"
-  integrity sha512-/4b/sEc6lIpkCapHBEb9up72whUF/Z5IE62hYeFFK+7BRLv8R/RzQqn5xcbSNL+pPyYGncLbOeSIo776GN6usw==
+  version "1.1.0"
+  resolved "https://registry.yarnpkg.com/@orangecheck/bip322/-/bip322-1.1.0.tgz#2884e42042661e8d9cb8b1c3becc3649635721b1"
+  integrity sha512-Q175HQIqRQe3KPpeFCtNxnxbgZ6GVJ5TGk3P4YVOGa9fblfAhvtPuBNBDVqO/cfEXV2d54d4iZ4xXMhRCy9Mfg==
   dependencies:
     "@noble/curves" "^1.9.7"
     "@noble/hashes" "^1.8.0"
