@@ -57,10 +57,13 @@ jq -s . ./agent.delegation ./out.action > pair.json
 npx @orangecheck/agent-cli verify pair.json
 # OK · action + delegation verified
 #   id: <action id>
-#   ! revocation not checked (offline) — query kind 30085 with "#t": [delegation id]
+#   checked at <the current time>
+#   ! revocation not checked (offline) — query kind 30085 with "#t": [delegation id] and pass --revocations
 ```
 
-Change one byte of the action's `content.hash` and the same command prints `REJECTED · E_BAD_ID` and exits 1. The web inspector at [agent.ochk.io/app/inspect](https://agent.ochk.io/app/inspect) accepts the same array, and also checks Nostr for revocations. In code, call `verifyAction` from [`@orangecheck/agent-core`](https://www.npmjs.com/package/@orangecheck/agent-core) with `content: canonicalizeInvocation(invocation)` from `@orangecheck/agent-mcp` to also prove the action covers this exact invocation; [`../verifying-mcp-server`](../verifying-mcp-server) does exactly that.
+`verify` checks the action as of now: the delegation in force, and `signed_at` within two minutes of the clock, so a slow wallet round trip reads `E_STALE`. To check an action after the fact, add `--as-of-signed-at`; it answers for the time the agent claims, and says that time is the agent's own unless an anchor fixes it.
+
+Change one byte of the action's `content.hash` and the same command prints `REJECTED · E_BAD_ID` and exits 1. The web inspector at [agent.ochk.io/app/inspect](https://agent.ochk.io/app/inspect) accepts the same array, and also checks Nostr for revocations. In code, a service deciding whether to run the call uses `verifyAction` from [`@orangecheck/agent-core`](https://www.npmjs.com/package/@orangecheck/agent-core), which checks as of now, with `content: canonicalizeInvocation(invocation)` from `@orangecheck/agent-mcp` to prove the action covers this exact invocation, and acts on each action id once (`createReplayGuard`); [`../verifying-mcp-server`](../verifying-mcp-server) does exactly that.
 
 ## Optional: explicit scope
 
