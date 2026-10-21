@@ -38,32 +38,38 @@ The `--call` file can be any of:
 
 ## Verifying the output
 
-Anyone holding the delegation can verify the envelope offline with `verifyAction` from [`@orangecheck/agent-core`](https://www.npmjs.com/package/@orangecheck/agent-core). Passing `content` also proves the action covers this exact call. Save this as `verify.mjs` in this directory:
+Anyone holding the delegation can audit the envelope offline with `verifyActionAsOfSignedAt` from [`@orangecheck/agent-core`](https://www.npmjs.com/package/@orangecheck/agent-core). Passing `content` also proves the action covers this exact call. Save this as `verify.mjs` in this directory:
 
 ```js
 import { readFileSync } from 'node:fs';
-import { verifyAction } from '@orangecheck/agent-core';
+import { verifyActionAsOfSignedAt } from '@orangecheck/agent-core';
 import { canonicalizeFunctionCall, parseFunctionCall } from '@orangecheck/agent-openai';
 import { verifySignature } from '@orangecheck/bip322';
 
 const [delegationPath, actionPath, callPath] = process.argv.slice(2);
 const read = (p) => JSON.parse(readFileSync(p, 'utf8'));
 
-const verdict = await verifyAction({
+const verdict = await verifyActionAsOfSignedAt({
     delegation: read(delegationPath),
     action: read(actionPath),
     content: canonicalizeFunctionCall(parseFunctionCall(read(callPath))),
     verifyBip322: async (msg, sig, addr) => verifySignature(addr, msg, sig),
     skipRevocationCheck: true, // or pass `revocations` fetched from Nostr kind-30085 by "#t": [delegation id]
 });
-console.log(verdict.ok ? `ok · ${verdict.id}` : `${verdict.code}: ${verdict.message}`);
+console.log(
+    verdict.ok
+        ? `ok · ${verdict.id} · as of ${verdict.asOf.signedAt}${verdict.asOf.anchored ? '' : ', the agent’s own claim'}`
+        : `${verdict.code}: ${verdict.message}`
+);
 process.exit(verdict.ok ? 0 : 1);
 ```
 
 ```bash
 node verify.mjs ./my-agent.delegation ./stamped.action ./example-call.json
-# ok · <action id>
+# ok · <action id> · as of <signed_at>, the agent’s own claim
 ```
+
+This is an audit: it checks the action as of its own `signed_at`, which the agent chose, unless an OTS anchor fixes it. A service deciding whether to act on a call uses `verifyAction` instead, which also needs the delegation in force now, the action signed within 120 seconds, and each action used once ([MCP servers](https://ochk.io/docs/agent/mcp)).
 
 Change one byte of the call's arguments and it fails with `E_BAD_ACTION_STAMP`. Change one byte of the envelope and it fails with `E_BAD_ID`.
 

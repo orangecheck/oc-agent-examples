@@ -81,6 +81,8 @@ Expected stderr:
 verify ok [demo-1] action=<12-hex>… scope=mcp:invoke(server=stdio:oc-agent-examples/verifying-mcp-server,tool=search)
 ```
 
+Pipe the request within two minutes of signing: the server checks the action live, and an older one is refused with `E_STALE`.
+
 Anything else gets an error response on stdout and a `reject` line on stderr, and the tool is **never** dispatched. For example:
 
 | Request | Code |
@@ -89,7 +91,9 @@ Anything else gets an error response on stdout and a `reject` line on stderr, an
 | action signature from a key other than the delegation's agent | `E_BAD_ACTION_STAMP` |
 | one byte of the action envelope changed | `E_BAD_ID` |
 | delegation signature does not verify for the principal | `E_BAD_SIG` |
-| delegation expired | `E_EXPIRED` |
+| delegation expired by now, whatever `signed_at` the action carries | `E_EXPIRED` |
+| action signed more than 120 seconds from the server's clock | `E_STALE` |
+| the same action sent again | `E_ALREADY_USED` |
 | delegation lasts more than 365 days | `E_MALFORMED` |
 | action exercises a scope outside the delegation | `E_SCOPE_DENIED` |
 | action exercises a granted scope that names another server or tool | `E_SCOPE_DENIED` |
@@ -97,11 +101,12 @@ Anything else gets an error response on stdout and a `reject` line on stderr, an
 
 ## What this example demonstrates
 
-1. **Where verification belongs**: between request parsing and dispatch. Add it to your real MCP server in the same place, just after you parse the JSON-RPC envelope and before you call into your tool registry.
-2. **Signatures are checked**: both BIP-322 signatures (the principal's on the delegation, the agent's on the action) are verified with [`@orangecheck/bip322`](https://www.npmjs.com/package/@orangecheck/bip322).
-3. **The content-hash bind**: a valid signature is not enough. The server rebuilds the canonical invocation bytes with `canonicalizeInvocation` from [`@orangecheck/agent-mcp`](https://www.npmjs.com/package/@orangecheck/agent-mcp), the same function `mcp-wrap` stamps with, and passes them to `verifyAction()` as `content`. Without this, an action envelope could be replayed against a different invocation.
-4. **Scope pinning**: `verifyAction()` checks that the exercised scope is a sub-scope of a grant. The server also requires that scope to name this server and the tool being called, so authority granted for another server can't be spent here.
-5. **What's intentionally not here**: revocation lookup against Nostr kind-30085. A production server SHOULD query kind 30085 with `"#t": [delegation id]` and pass `revocations: [...]` to `verifyDelegation()` and `verifyAction()` instead of `skipRevocationCheck: true`, to honor `E_REVOKED`. The demo skips it to stay offline-runnable. The request loop waits for in-flight verifications before exiting, so adding that network call is safe.
+1. **Where verification belongs**: between request parsing and dispatch. Add it to your real MCP server in the same place, just after you parse the JSON-RPC envelope and before you call into your tool registry. In real MCP, the action rides in the `tools/call` request's `params._meta["io.ochk/agent-action"]` ([MCP servers](https://ochk.io/docs/agent/mcp)); this demo bundles it with the delegation under `_oc_agent` to stay a single file.
+2. **Live checks**: `verifyAction()` checks as of now — the delegation in force now, `signed_at` within 120 seconds of the server's clock — and a replay guard (`createReplayGuard`) runs each action once.
+3. **Signatures are checked**: both BIP-322 signatures (the principal's on the delegation, the agent's on the action) are verified with [`@orangecheck/bip322`](https://www.npmjs.com/package/@orangecheck/bip322).
+4. **The content-hash bind**: a valid signature is not enough. The server rebuilds the canonical invocation bytes with `canonicalizeInvocation` from [`@orangecheck/agent-mcp`](https://www.npmjs.com/package/@orangecheck/agent-mcp), the same function `mcp-wrap` stamps with, and passes them to `verifyAction()` as `content`. Without this, an action envelope could be replayed against a different invocation.
+5. **Scope pinning**: `verifyAction()` checks that the exercised scope is a sub-scope of a grant. The server also requires that scope to name this server and the tool being called, so authority granted for another server can't be spent here.
+6. **What's intentionally not here**: revocation lookup against Nostr kind-30085. A production server SHOULD query kind 30085 with `"#t": [delegation id]` and pass `revocations: [...]` to `verifyAction()` instead of `skipRevocationCheck: true`, to honor `E_REVOKED`, and refuse the call when no relay answers. The demo skips it to stay offline-runnable. The request loop waits for in-flight verifications before exiting, so adding that network call is safe.
 
 ## Composition with the rest of the family
 

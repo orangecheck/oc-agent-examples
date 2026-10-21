@@ -1,17 +1,12 @@
-// Wraps @orangecheck/agent-core's verifyAction with two MCP-shaped checks:
+// Wraps @orangecheck/agent-core's live verifyAction with MCP-shaped checks:
 // the action's content hash MUST match the canonical bytes of the invocation
-// this server was actually asked to run, and the exercised scope MUST name
-// this server and this tool.
+// this server was actually asked to run, the exercised scope MUST name this
+// server and this tool, and each action runs once.
 //
 // The canonical bytes come from @orangecheck/agent-mcp, the same function
 // mcp-wrap stamps with, so the two sides cannot drift apart.
 
-import {
-    isSubScope,
-    parseScope,
-    verifyAction,
-    verifyDelegation,
-} from '@orangecheck/agent-core';
+import { createReplayGuard, isSubScope, parseScope, verifyAction } from '@orangecheck/agent-core';
 import { canonicalizeInvocation } from '@orangecheck/agent-mcp';
 import { verifySignature } from '@orangecheck/bip322';
 
@@ -38,27 +33,21 @@ export type VerifyMcpCallResult = VerifyMcpCallOk | VerifyMcpCallErr;
 const verifyBip322 = async (msg: string, sig: string, addr: string) =>
     verifySignature(addr, msg, sig);
 
+/** Ids of accepted actions, kept for as long as they could pass verifyAction's 120 s bound. */
+const seen = createReplayGuard();
+
 export async function verifyMcpCall(
     req: ToolCallRequest,
     bundle: OcAgentBundle
 ): Promise<VerifyMcpCallResult> {
-    // 1. The delegation is authentic and in force right now.
+    // 1. The action, checked live (SPEC §8): the delegation in force now, its
+    //    signature, the agent's signature, the sub-scope of a grant, and
+    //    signed_at within 120 s of this clock (E_STALE). `content` binds the
+    //    action to the invocation we received: an action stamped over different
+    //    arguments, another tool or another server fails here.
     //    Revocations: this demo stays offline. A production server queries
-    //    Nostr kind-30085 by `"#t": [delegation id]` and passes `revocations` instead of
-    //    skipRevocationCheck, here and in step 2.
-    const dr = await verifyDelegation({
-        envelope: bundle.delegation,
-        verifyBip322,
-        skipRevocationCheck: true,
-    });
-    if (!dr.ok) {
-        return { ok: false, code: dr.code, message: `delegation: ${dr.message}` };
-    }
-
-    // 2. The action: SPEC §8 chain (id, agent signature, delegation binding,
-    //    signing window, sub-scope of a grant), plus `content`, which binds
-    //    the action to the invocation we received. An action stamped over
-    //    different arguments, another tool or another server fails here.
+    //    Nostr kind-30085 by `"#t": [delegation id]` and passes `revocations`
+    //    instead of skipRevocationCheck; if no relay answers, it refuses.
     const ar = await verifyAction({
         action: bundle.action,
         delegation: bundle.delegation,
@@ -74,7 +63,7 @@ export async function verifyMcpCall(
         return { ok: false, code: ar.code, message: `action: ${ar.message}` };
     }
 
-    // 3. The exercised scope must name this server and this tool. verifyAction
+    // 2. The exercised scope must name this server and this tool. verifyAction
     //    already proved it is a sub-scope of some grant; this proves the grant
     //    being exercised is the one for this call.
     let admitted = false;
@@ -90,6 +79,11 @@ export async function verifyMcpCall(
             code: 'E_SCOPE_DENIED',
             message: `scope_exercised ${bundle.action.scope_exercised} does not name server=${SERVER_ID},tool=${req.params.name}`,
         };
+    }
+
+    // 3. One signed action runs once.
+    if (!seen.firstUse(bundle.action)) {
+        return { ok: false, code: 'E_ALREADY_USED', message: `action ${ar.id} was already used` };
     }
 
     return {
