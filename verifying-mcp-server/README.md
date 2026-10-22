@@ -113,7 +113,7 @@ Anything else gets an error response on stdout and a `reject` line on stderr, an
 - **Client** signs at [`mcp-wrap`](../mcp-wrap) — produces the `.action` envelope.
 - **Server** verifies here — refuses dispatch on rejection.
 - **Audit/inspection** at [agent.ochk.io/app/inspect](https://agent.ochk.io/app/inspect) — paste a `[delegation, action]` pair to verify it in the browser, including a revocation lookup.
-- **Revocation** at [agent.ochk.io/app](https://agent.ochk.io/app) — the principal can revoke; once the server checks revocations, later calls fail `E_REVOKED`.
+- **Revocation** at [agent.ochk.io/app](https://agent.ochk.io/app) — the principal or the agent can revoke; once the server checks revocations, later calls fail `E_REVOKED`.
 
 ## License
 

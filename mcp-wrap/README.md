@@ -104,7 +104,7 @@ OC Agent's value is the loop:
 
 - The **principal** issues a `delegation` envelope (Bitcoin-signed grant to the agent).
 - The **agent** issues `action` envelopes, each citing the delegation (this CLI's job).
-- The **principal** can revoke — every action signed *after* the revocation's OTS anchor fails verification with `E_REVOKED`.
+- The **principal** or the **agent** can revoke at any time. Once the revocation is in effect, verification refuses every action with `E_REVOKED`.
 
 If you only sign actions and skip the delegation/revocation context, you're back to a plain audit log. The composition is the point.
 
