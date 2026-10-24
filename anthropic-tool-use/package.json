@@ -11,7 +11,7 @@
     "dependencies": {
         "@anthropic-ai/sdk": "^0.32.0",
         "@orangecheck/agent-anthropic": "^1.1.1",
-        "@orangecheck/agent-core": "^2.7.0",
+        "@orangecheck/agent-core": "^2.8.0",
         "@orangecheck/agent-signer": "^0.4.0",
         "@orangecheck/bip322": "^1.0.1"
     },
