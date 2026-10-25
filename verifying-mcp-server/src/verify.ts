@@ -1,7 +1,8 @@
 // Wraps @orangecheck/agent-core's live verifyAction with MCP-shaped checks:
 // the action's content hash MUST match the canonical bytes of the invocation
 // this server was actually asked to run, the exercised scope MUST name this
-// server and this tool, and each action runs once.
+// server and this tool, a grant's max_invocations caps how many run, and each
+// action runs once.
 //
 // The canonical bytes come from @orangecheck/agent-mcp, the same function
 // mcp-wrap stamps with, so the two sides cannot drift apart.
@@ -42,6 +43,22 @@ const verifyBip322 = async (msg: string, sig: string, addr: string) =>
 
 /** Ids of accepted actions, kept for as long as they could pass verifyAction's 120 s bound. */
 const seen = createReplayGuard();
+
+/**
+ * Actions accepted under each grant, by `<delegation id> <granted scope>`. This
+ * lives in memory, so the max_invocations cap holds only while the process runs;
+ * a fork keeps it in a durable store.
+ */
+const invocations = new Map<string, number>();
+
+/** The most invocations `grant` allows, or null when it sets no upper bound. */
+function invocationCap(grant: Scope): number | null {
+    const c = grant.constraints.find((x) => x.key === 'max_invocations');
+    if (!c || c.value === undefined || !/^\d+$/.test(c.value)) return null;
+    if (c.op === '<=' || c.op === '=') return Number(c.value);
+    if (c.op === '<') return Number(c.value) - 1;
+    return null;
+}
 
 export async function verifyMcpCall(
     req: ToolCallRequest,
@@ -97,10 +114,27 @@ export async function verifyMcpCall(
         };
     }
 
-    // 3. One signed action runs once.
+    // 3. max_invocations: each accepted action spends one invocation from a grant
+    //    that admits it, and a grant with none left admits no more.
+    const exercised = parseScope(bundle.action.scope_exercised);
+    const slot = (bundle.delegation.scopes ?? [])
+        .map(parseScope)
+        .filter((g) => isSubScope(exercised, g))
+        .map((g) => ({ key: `${bundle.delegation.id} ${canonicalizeScope(g)}`, cap: invocationCap(g) }))
+        .find(({ key, cap }) => cap === null || (invocations.get(key) ?? 0) < cap);
+    if (!slot) {
+        return {
+            ok: false,
+            code: 'E_MAX_INVOCATIONS',
+            message: `delegation ${bundle.delegation.id} has no invocations left for ${bundle.action.scope_exercised}`,
+        };
+    }
+
+    // 4. One signed action runs once.
     if (!seen.firstUse(bundle.action)) {
         return { ok: false, code: 'E_ALREADY_USED', message: `action ${ar.id} was already used` };
     }
+    invocations.set(slot.key, (invocations.get(slot.key) ?? 0) + 1);
 
     return {
         ok: true,

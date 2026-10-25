@@ -94,6 +94,7 @@ Anything else gets an error response on stdout and a `reject` line on stderr, an
 | delegation expired by now, whatever `signed_at` the action carries | `E_EXPIRED` |
 | action signed more than 120 seconds from the server's clock | `E_STALE` |
 | the same action sent again | `E_ALREADY_USED` |
+| more actions under a grant than its `max_invocations` allows | `E_MAX_INVOCATIONS` |
 | delegation lasts more than 365 days | `E_MALFORMED` |
 | action exercises a scope outside the delegation | `E_SCOPE_DENIED` |
 | action exercises a granted scope that names another server or tool | `E_SCOPE_DENIED` |
@@ -106,7 +107,8 @@ Anything else gets an error response on stdout and a `reject` line on stderr, an
 3. **Signatures are checked**: both BIP-322 signatures (the principal's on the delegation, the agent's on the action) are verified with [`@orangecheck/bip322`](https://www.npmjs.com/package/@orangecheck/bip322).
 4. **The content-hash bind**: a valid signature is not enough. The server rebuilds the canonical invocation bytes with `canonicalizeInvocation` from [`@orangecheck/agent-mcp`](https://www.npmjs.com/package/@orangecheck/agent-mcp), the same function `mcp-wrap` stamps with, and passes them to `verifyAction()` as `content`. Without this, an action envelope could be replayed against a different invocation.
 5. **Scope pinning**: `verifyAction()` checks that the exercised scope is a sub-scope of a grant. The server also requires that scope to name this server and the tool being called, so authority granted for another server can't be spent here.
-6. **What's intentionally not here**: revocation lookup against Nostr kind-30085. A production server SHOULD query kind 30085 with `"#t": [delegation id]` and pass `revocations: [...]` to `verifyAction()` instead of `skipRevocationCheck: true`, to honor `E_REVOKED`, and refuse the call when no relay answers. The demo skips it to stay offline-runnable. The request loop waits for in-flight verifications before exiting, so adding that network call is safe.
+6. **Invocation caps**: a grant's `max_invocations` is a count only the server can keep. Each accepted action spends one from a grant that admits it, and a grant with none left admits no more (`yarn test`). The count is in memory, so a fork keeps it in a durable store for the cap to hold across restarts.
+7. **What's intentionally not here**: revocation lookup against Nostr kind-30085. A production server SHOULD query kind 30085 with `"#t": [delegation id]` and pass `revocations: [...]` to `verifyAction()` instead of `skipRevocationCheck: true`, to honor `E_REVOKED`, and refuse the call when no relay answers. The demo skips it to stay offline-runnable. The request loop waits for in-flight verifications before exiting, so adding that network call is safe.
 
 ## Composition with the rest of the family
 
