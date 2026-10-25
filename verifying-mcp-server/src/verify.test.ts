@@ -52,6 +52,22 @@ test('a grant of max_invocations<=2 runs two actions and refuses the third', asy
     assert.equal(await call(scope), 'E_MAX_INVOCATIONS');
 });
 
+test('a grant of max_invocations<3 runs two actions and refuses the third', async () => {
+    const scope = `mcp:invoke(max_invocations<3,server=${SERVER_ID},tool=search)`;
+    const call = await harness(scope);
+    assert.equal(await call(scope), 'ok');
+    assert.equal(await call(scope), 'ok');
+    assert.equal(await call(scope), 'E_MAX_INVOCATIONS');
+});
+
+test('a grant of max_invocations=2 runs two actions and refuses the third', async () => {
+    const scope = `mcp:invoke(max_invocations=2,server=${SERVER_ID},tool=search)`;
+    const call = await harness(scope);
+    assert.equal(await call(scope), 'ok');
+    assert.equal(await call(scope), 'ok');
+    assert.equal(await call(scope), 'E_MAX_INVOCATIONS');
+});
+
 test('a grant with no max_invocations sets no cap', async () => {
     const scope = `mcp:invoke(server=${SERVER_ID},tool=search)`;
     const call = await harness(scope);
