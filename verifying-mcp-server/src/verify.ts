@@ -6,7 +6,14 @@
 // The canonical bytes come from @orangecheck/agent-mcp, the same function
 // mcp-wrap stamps with, so the two sides cannot drift apart.
 
-import { createReplayGuard, isSubScope, parseScope, verifyAction } from '@orangecheck/agent-core';
+import {
+    canonicalizeScope,
+    createReplayGuard,
+    isSubScope,
+    parseScope,
+    verifyAction,
+    type Scope,
+} from '@orangecheck/agent-core';
 import { canonicalizeInvocation } from '@orangecheck/agent-mcp';
 import { verifySignature } from '@orangecheck/bip322';
 
@@ -65,10 +72,19 @@ export async function verifyMcpCall(
 
     // 2. The exercised scope must name this server and this tool. verifyAction
     //    already proved it is a sub-scope of some grant; this proves the grant
-    //    being exercised is the one for this call.
+    //    being exercised is the one for this call. The tool name comes from the
+    //    request, so it goes in as a value and never as scope text: a call
+    //    named "*" is the tool called "*", not every tool.
+    const here: Scope = {
+        product: 'mcp',
+        verb: 'invoke',
+        constraints: [
+            { key: 'server', op: '=', value: SERVER_ID, quoted: false },
+            { key: 'tool', op: '=', value: req.params.name, quoted: true },
+        ],
+    };
     let admitted = false;
     try {
-        const here = parseScope(`mcp:invoke(server=${SERVER_ID},tool=${req.params.name})`);
         admitted = isSubScope(parseScope(bundle.action.scope_exercised), here);
     } catch (e) {
         return { ok: false, code: 'E_BAD_SCOPE_GRAMMAR', message: (e as Error).message };
@@ -77,7 +93,7 @@ export async function verifyMcpCall(
         return {
             ok: false,
             code: 'E_SCOPE_DENIED',
-            message: `scope_exercised ${bundle.action.scope_exercised} does not name server=${SERVER_ID},tool=${req.params.name}`,
+            message: `scope_exercised ${bundle.action.scope_exercised} does not name ${canonicalizeScope(here)}`,
         };
     }
 
