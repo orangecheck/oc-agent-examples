@@ -41,7 +41,7 @@ Use `yarn -s` (silent). Plain `yarn start` prints its own banner to stdout and c
 
 ### Override the scope
 
-By default the adapter exercises the tightest scope for the tool: `anthropic:tool(name=<tool>)`. Pass `--scope` to exercise a different one. It must be a sub-scope of a scope the delegation grants, or the adapter refuses before anything is signed:
+By default the adapter exercises the tightest scope for the tool: `anthropic:tool(name="<tool>")`, the name as a quoted value. Pass `--scope` to exercise a different one. It must be a sub-scope of a scope the delegation grants, or the adapter refuses before anything is signed:
 
 ```bash
 yarn -s start \

@@ -26,7 +26,7 @@ yarn -s start \
   > stamped.action
 ```
 
-Use `yarn -s` (silent). Plain `yarn start` prints its own banner to stdout and corrupts the envelope file. Pass `--scope <scope>` to exercise a scope other than the default `openai:function(name=<name>)`; it must be a sub-scope of a granted scope.
+Use `yarn -s` (silent). Plain `yarn start` prints its own banner to stdout and corrupts the envelope file. Pass `--scope <scope>` to exercise a scope other than the default `openai:function(name="<name>")`; it must be a sub-scope of a granted scope.
 
 The `--call` file can be any of:
 

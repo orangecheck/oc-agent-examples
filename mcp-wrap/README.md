@@ -67,7 +67,7 @@ Change one byte of the action's `content.hash` and the same command prints `REJE
 
 ## Optional: explicit scope
 
-By default the script computes the scope as `mcp:invoke(server=<server>,tool=<tool>)`. If your delegation grants something narrower (e.g., `mcp:invoke(server=https://x.com,tool=search,max_invocations<=50)`), pass it explicitly so the action's `scope_exercised` matches:
+By default the script computes the scope as `mcp:invoke(server="<server>",tool="<tool>")`, both as quoted values. If your delegation grants something narrower (e.g., `mcp:invoke(server=https://x.com,tool=search,max_invocations<=50)`), pass it explicitly so the action's `scope_exercised` matches:
 
 ```bash
 yarn -s start \
@@ -81,7 +81,7 @@ yarn -s start \
 The script pre-flights the sub-scope relation (SPEC §7.4), so a mismatch fails before you sign:
 
 ```
-ERROR: stampInvocation: scope_exercised (mcp:invoke(server=https://mcp.example.com,tool=delete)) is not a sub-scope of any granted scope (mcp:invoke(server=https://mcp.example.com,tool=search))
+ERROR: stampInvocation: scope_exercised (mcp:invoke(server="https://mcp.example.com",tool="delete")) is not a sub-scope of any granted scope (mcp:invoke(server=https://mcp.example.com,tool=search))
 ```
 
 ## Wiring this into Claude Code, Cursor, or any MCP client

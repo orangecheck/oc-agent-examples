@@ -78,7 +78,7 @@ Expected stdout:
 Expected stderr:
 
 ```
-verify ok [demo-1] action=<12-hex>… scope=mcp:invoke(server=stdio:oc-agent-examples/verifying-mcp-server,tool=search)
+verify ok [demo-1] action=<12-hex>… scope=mcp:invoke(server="stdio:oc-agent-examples/verifying-mcp-server",tool="search")
 ```
 
 Pipe the request within two minutes of signing: the server checks the action live, and an older one is refused with `E_STALE`.

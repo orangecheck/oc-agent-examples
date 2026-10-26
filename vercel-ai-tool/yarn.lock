@@ -149,31 +149,31 @@
   resolved "https://registry.npmjs.org/@noble/hashes/-/hashes-1.8.0.tgz#cee43d801fcef9644b11b8194857695acd5f815a"
   integrity sha512-jCs9ldd7NwzpgXDIf6P3+NrHh9/sD6CQdxHyjQI+h/6rDNo88ypBxxz45UDuZHz9r3tNz7N/VInSVoVdtXEI4A==
 
-"@orangecheck/agent-core@^2.9.0":
-  version "2.9.0"
-  resolved "https://registry.yarnpkg.com/@orangecheck/agent-core/-/agent-core-2.9.0.tgz#83cf0a7089d9ee90934593f63beba8edd02dab07"
-  integrity sha512-iFkBP2ekdyuyZ0lBRUli5jfm5o7TdvyWyoW0xMbLmevYqxThWv1c+Aj2aS204Ca+BFltM0htAb+lqxBLozkIqg==
+"@orangecheck/agent-core@^2.10.0":
+  version "2.10.0"
+  resolved "https://registry.yarnpkg.com/@orangecheck/agent-core/-/agent-core-2.10.0.tgz#b6f8fcd6817d0561ba38fe51fcae32458559d506"
+  integrity sha512-eW/ibmUnupgoRIVIrPUpk0VtP9UtuBCM04pKyXZY6dtmwtUmk/wkqmg7djjqiEkn5HkZ5m5QoN3rOmWmMYV4kA==
   dependencies:
     "@noble/hashes" "^1.5.0"
     "@orangecheck/lock-core" "^1.0.1"
     "@orangecheck/stamp-core" "^1.0.0"
 
-"@orangecheck/agent-signer@^0.5.2":
-  version "0.5.2"
-  resolved "https://registry.yarnpkg.com/@orangecheck/agent-signer/-/agent-signer-0.5.2.tgz#f1406adf38a0eb8fea10fcb462fb495d1988b5da"
-  integrity sha512-jPOsypJUrlUrUCngCfreWLiG0mbadaVDuyxo2YuqVVe8BeNZ+NudKH/hrBSDTFejrQhvoTxRGJTSeKBcg/Ul2Q==
+"@orangecheck/agent-signer@^0.6.0":
+  version "0.6.0"
+  resolved "https://registry.yarnpkg.com/@orangecheck/agent-signer/-/agent-signer-0.6.0.tgz#2592b9fea256be4d21c3afc40f5defe477fa022b"
+  integrity sha512-kEixkRvsHXiUXlhy18rLMAsWTPMoR3+N3CrSv0jycF1SlM6UKfP3k1yjIlkjPHKSfMU8Ia5q7aTbTpKexJTeVg==
   dependencies:
     "@noble/hashes" "^1.5.0"
-    "@orangecheck/agent-core" "^2.9.0"
+    "@orangecheck/agent-core" "^2.10.0"
 
-"@orangecheck/agent-vercel@^1.1.3":
-  version "1.1.3"
-  resolved "https://registry.yarnpkg.com/@orangecheck/agent-vercel/-/agent-vercel-1.1.3.tgz#23ab53d4a51f0e9a2a4d361fb2ed1d08d947b92d"
-  integrity sha512-XwdH5biZjOA4QI5Z4hAKjtUWMtO03P0dhbn4zQJ2aYe8JAZPhd9ietbCS5Bj0I0OOexkpZiwT0imQrHjMQ1jAA==
+"@orangecheck/agent-vercel@^1.1.5":
+  version "1.1.5"
+  resolved "https://registry.yarnpkg.com/@orangecheck/agent-vercel/-/agent-vercel-1.1.5.tgz#d7bbc52854fd99b430d9a9a37a49927621a81e92"
+  integrity sha512-XYQV17bmItIkHplwy5cNACrRTXQyDJ9TRXa1XjnT/LgvBp339FUCfLOHpP8p11mO7vJeW9ZcGGOk8FepXu4+lg==
   dependencies:
     "@noble/hashes" "^1.5.0"
-    "@orangecheck/agent-core" "^2.9.0"
-    "@orangecheck/agent-signer" "^0.5.2"
+    "@orangecheck/agent-core" "^2.10.0"
+    "@orangecheck/agent-signer" "^0.6.0"
 
 "@orangecheck/bip322@^1.0.1":
   version "1.1.0"
